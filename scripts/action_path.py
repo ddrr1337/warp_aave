@@ -9,8 +9,9 @@ from brownie import (
 from scripts.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
 
-SEPOLIA_RECEIVER = "0x5b3759E7ab559b95Ddf686a650fb586466c4d094"
-ARBITRUM_RECEIVER = "0xCacC68eC6b22d799585b6cfCB7032F13E1C13632"
+MASTER_CONTRACT_SEPOLIA = "0x36290f3d3701059ad8Eb4047548c7A38925eD9a4"
+ARBITRUM_RECEIVER = "0x7dD5457c1477FC721d4865aD01b87E786D64a04A"
+
 tx_base = "0x453ae978d12682d8606f75e5536abb1d26b45e50c552f5b416537c590d81df91"
 
 
@@ -25,10 +26,10 @@ def deploy_master():
     )
     transfer = link_contract.transfer(
         Master[-1].address,
-        1 * 10**18,
+        0.5 * 10**18,
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
-    print("Sent 1Link to Sender contract")
+    print("Sent 0.5Link to Sender contract")
 
 
 def deploy_slave():
@@ -36,8 +37,10 @@ def deploy_slave():
         config["networks"][network.show_active()].get("router_ccip_address"),
         config["networks"][network.show_active()].get("link_token"),
         config["networks"][network.show_active()].get("usdc_circle_token"),
+        config["networks"][network.show_active()].get("ausdc_circle_token"),
         config["networks"][network.show_active()].get("circle_token_messenger"),
         config["networks"][network.show_active()].get("aave_pool_addresses_provider"),
+        MASTER_CONTRACT_SEPOLIA,
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
     link_contract = interface.IERC20(
@@ -45,10 +48,10 @@ def deploy_slave():
     )
     transfer = link_contract.transfer(
         Slave[-1].address,
-        1 * 10**18,
+        0.5 * 10**18,
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
-    print("Sent 1Link to Sender contract")
+    print("Sent 0.5Link to Sender contract")
 
 
 def send_message(instance, chainId, destination, message):
@@ -143,13 +146,6 @@ def test_deploy():
     )
 
 
-def test_balance():
-    contract = interface.IERC20("0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238")
-
-    balance = contract.balanceOf("0x8B69C9396B6A40050E1A5D52025D487F551755CD")
-    print("balance test", balance)
-
-
 def warp_assets(chainId, target_address_for_command, circleChainId, mintReciepent):
     contract = Master[-1]
     message_tx = contract.warpAssets(
@@ -175,7 +171,7 @@ def test_allowance():
 
 
 def read_warps(messageIndex):
-    contract = interface
+    contract = Slave[-1]
     warp_id = contract.warpIds(messageIndex)
     warp_destination = contract.warpIdToDestinationChain(warp_id)
     print(warp_destination)
@@ -191,10 +187,21 @@ def approve_circle_usdc_on_slave(amount, account):
 
 
 def deposit_slave(amount, account):
+    approve_circle_usdc_on_slave(amount, account)
     contract = Slave[-1]
     deposit = contract.deposit(
         amount,
         {"from": account, "gas_price": get_gas_price() * 1.5},
+    )
+
+
+def withdraw_master(chainId, target_address_for_command, amount):
+    contract = Master[-1]
+    withdraw = contract.withdraw(
+        chainId,
+        target_address_for_command,
+        amount,
+        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
 
 
@@ -207,28 +214,77 @@ def get_ausdc_balance(account):
     print("AUSDC in Slave", balance)
 
 
-def main():
+def get_terster_command():
+    contract = Slave[-1]
+    command = contract.command()
+    print(command)
 
+
+def get_usdc_balance(account):
+    contract = interface.IERC20(
+        config["networks"][network.show_active()].get("usdc_circle_token")
+    )
+    balance = contract.balanceOf(account)
+
+    print("USDC balance: ", balance / 10**6)
+
+
+def get_link_balance(account):
+    contract = interface.IERC20(
+        config["networks"][network.show_active()].get("link_token")
+    )
+    balance = contract.balanceOf(account)
+
+    print("Link balance", balance / 10**18)
+
+
+def get_test_variables():
+    contract = Master[-1]
+    testerAusdcNode = contract.testerAusdcNode()
+    print("testerAusdcNode", testerAusdcNode)
+
+
+def testing_return_funds():
+    contract = Slave[-1]
+    return_funds = contract.testingReturnFunds(
+        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5}
+    )
+
+
+def aWRP_balance(account):
+    contract = Master[-1]
+    balance = contract.balanceOf(account)
+
+    print(f"aWRP Balance of address: {account.address}")
+    print(f"{balance} aWarp Wei")
+    print(f"{balance/10**18} aWarp ETH")
+
+
+def main():
+    # testing_return_funds()
     # deploy_master()
     # deploy_slave()
     # add_valid_node(ARBITRUM_RECEIVER)
-    # approve_circle_usdc_on_slave(1 * 10**6, get_account(account="main"))
-    # deposit_slave(1 * 10**6, get_account(account="main"))
+    # deposit_slave(5 * 10**6, get_account(account="main"))
     get_ausdc_balance(Slave[-1].address)
-    # read_balance_master(get_account(account="main").address)
-    """warp_assets(
+    # aWRP_balance(get_account(account="main"))
+    # get_usdc_balance(get_account(account="main"))
+    # get_link_balance(Slave[-1].address)
+    """withdraw_master(
+        config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
+        ARBITRUM_RECEIVER,
+        0.1 * 10**6,
+    )"""
+    """ warp_assets(
         config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
         ARBITRUM_RECEIVER,
         config["networks"]["polygon-test"].get("circle_chain_id"),
         "0x26baAC08CB753303de111e904e19BaF91e6b5E4d",
-    )"""
+    ) """
 
-    """send_message(
-        Slave[-1],
-        config["networks"]["sepolia"].get("BC_identifier"),
-        SEPOLIA_RECEIVER,
-        "message to master sepolia",
-    )"""
+    # get_terster_command()
+    # get_test_variables()
+
     # read_message(Master[-1], 1)
     # read_warps(0)
     # approve(Slave[-1], 10 * 10**6, get_account(account="main"))

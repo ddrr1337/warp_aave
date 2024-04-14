@@ -8,14 +8,9 @@ import {OwnerIsCreator} from "@chainlink/contracts/src/v0.8/shared/access/OwnerI
 
 import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
 
-/**
- * THIS IS AN EXAMPLE CONTRACT THAT USES HARDCODED VALUES FOR CLARITY.
- * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
- * DO NOT USE THIS CODE IN PRODUCTION.
- */
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-/// @title - A simple contract for receiving string data across chains.
-contract Master is CCIPReceiver {
+contract Master is ERC20, CCIPReceiver {
     // Event emitted when a message is received from another chain.
     event MessageReceived(
         bytes32 indexed messageId, // The unique ID of the message.
@@ -28,8 +23,6 @@ contract Master is CCIPReceiver {
     event MessageSent(
         bytes32 indexed messageId, // The unique ID of the CCIP message.
         uint64 indexed destinationChainSelector, // The chain selector of the destination chain.
-        address receiver, // The address of the receiver on the destination chain.
-        uint32 targetCircleChainId, // destination chain to warp funds, circle format.
         address feeToken, // the token address used to pay CCIP fees.
         uint256 fees // The fees paid for sending the CCIP message.
     );
@@ -40,38 +33,75 @@ contract Master is CCIPReceiver {
 
     bool public isNodeActive;
 
-    struct Message {
-        string message;
-        address sender;
-    }
-
-    mapping(address => uint256) public userBalance;
-    uint256 public vaultBalance;
-
     mapping(address => bool) public validNodes;
+
+    //////////////////////////TESTING///////////////////
+    uint256 aUsdcCheckpointReference;
+
+    ///////////////////////////////CONSTRUCTOR//////////////////////////////
 
     /// @notice Constructor initializes the contract with the router address.
     /// @param _router The address of the router contract.
-    constructor(address _router, address _link) CCIPReceiver(_router) {
+    constructor(
+        address _router,
+        address _link
+    ) ERC20("WarpYield", "aWRP") CCIPReceiver(_router) {
         s_router = IRouterClient(_router);
         s_linkToken = LinkTokenInterface(_link);
+    }
+
+    function internalMessageRouter(
+        Client.Any2EVMMessage memory _any2EvmMessage
+    ) public returns (uint8) {
+        uint8 command = abi.decode(_any2EvmMessage.data, (uint8));
+
+        return command;
+    }
+
+    function aWarpTokenMinter(
+        Client.Any2EVMMessage memory _any2EvmMessage
+    ) public {
+        (
+            uint8 command,
+            address userAddress,
+            uint256 amount,
+            uint256 totalAusdcNode
+        ) = abi.decode(
+                _any2EvmMessage.data,
+                (uint8, address, uint256, uint256)
+            );
+
+        uint256 aWRPTotalSupply = totalSupply();
+        uint256 shares;
+        if (aWRPTotalSupply == 0) {
+            shares = amount;
+        } else {
+            shares = (amount * aWRPTotalSupply) / totalAusdcNode;
+        }
+
+        aUsdcCheckpointReference = totalAusdcNode + amount;
+
+        _mint(userAddress, shares * 10 ** 12);
+
+        // TESTING //
     }
 
     /// handle a received message
     function _ccipReceive(
         Client.Any2EVMMessage memory any2EvmMessage
     ) internal override {
-        (address userAddress, uint256 amount) = abi.decode(
-            any2EvmMessage.data,
-            (address, uint256)
-        );
         require(
             validNodes[abi.decode(any2EvmMessage.sender, (address))],
             "Request from invalid node"
         );
 
-        userBalance[userAddress] += amount;
-        vaultBalance += amount;
+        uint8 command = internalMessageRouter(any2EvmMessage);
+
+        if (command == 0) {
+            aWarpTokenMinter(any2EvmMessage);
+        } else {
+            revert("invalid command from Slave");
+        }
 
         emit MessageReceived(
             any2EvmMessage.messageId,
@@ -83,13 +113,12 @@ contract Master is CCIPReceiver {
     function _sendMessage(
         uint64 destinationChainSelector,
         address receiver,
-        uint32 targetCircleChainId,
-        bytes32 mintRecipient
+        bytes memory _data
     ) internal returns (bytes32 messageId) {
         // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
         Client.EVM2AnyMessage memory evm2AnyMessage = Client.EVM2AnyMessage({
             receiver: abi.encode(receiver), // ABI-encoded receiver address
-            data: abi.encode(targetCircleChainId, mintRecipient), // ABI-encoded string
+            data: _data, // ABI-encoded data
             tokenAmounts: new Client.EVMTokenAmount[](0), // Empty array indicating no tokens are being sent
             extraArgs: Client._argsToBytes(
                 // Additional arguments, setting gas limit
@@ -118,8 +147,6 @@ contract Master is CCIPReceiver {
         emit MessageSent(
             messageId,
             destinationChainSelector,
-            receiver,
-            targetCircleChainId,
             address(s_linkToken),
             fees
         );
@@ -132,21 +159,38 @@ contract Master is CCIPReceiver {
         validNodes[_node] = true;
     }
 
+    // cambiar esto para que los datos vayan codificados en bytes
     function warpAssets(
         uint64 _destinationChainSelector,
-        address commandAddressReceiver,
+        address nodeAddressReceiver,
         uint32 circleChainId,
         bytes32 mintRecipient
     ) public {
-        require(
-            validNodes[commandAddressReceiver],
-            "Forbbiden, node not valid"
+        require(validNodes[nodeAddressReceiver], "Forbbiden, node not valid");
+        uint8 command = 0;
+        bytes memory data = abi.encode(command, circleChainId, mintRecipient);
+        _sendMessage(_destinationChainSelector, nodeAddressReceiver, data);
+    }
+
+    function withdraw(
+        uint64 _destinationChainSelector,
+        address nodeAddressReceiver,
+        uint256 amount
+    ) external {
+        require(validNodes[nodeAddressReceiver], "Forbbiden, node not valid");
+        require(amount <= balanceOf(msg.sender), "Not enought balance");
+
+        uint8 command = 1;
+
+        bytes memory data = abi.encode(
+            command,
+            msg.sender,
+            amount,
+            totalSupply(),
+            aUsdcCheckpointReference
         );
-        _sendMessage(
-            _destinationChainSelector,
-            commandAddressReceiver,
-            circleChainId,
-            mintRecipient
-        );
+        _burn(msg.sender, amount);
+
+        _sendMessage(_destinationChainSelector, nodeAddressReceiver, data);
     }
 }
