@@ -92,7 +92,7 @@ contract Slave is CCIPReceiver {
         MASTER_CONTRACT = _MASTER_CONTRACT;
     }
 
-    function internalMessageRouter(
+    function internalCommandRouter(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) public returns (uint8) {
         uint8 command = abi.decode(_any2EvmMessage.data, (uint8));
@@ -166,7 +166,7 @@ contract Slave is CCIPReceiver {
             "MASTER CHAIN ONLY"
         );
 
-        uint8 command = internalMessageRouter(any2EvmMessage);
+        uint8 command = internalCommandRouter(any2EvmMessage);
 
         if (command == 0) {
             warpAssets(any2EvmMessage);

@@ -50,7 +50,7 @@ contract Master is ERC20, CCIPReceiver {
         s_linkToken = LinkTokenInterface(_link);
     }
 
-    function internalMessageRouter(
+    function internalCommandRouter(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) public returns (uint8) {
         uint8 command = abi.decode(_any2EvmMessage.data, (uint8));
@@ -95,7 +95,7 @@ contract Master is ERC20, CCIPReceiver {
             "Request from invalid node"
         );
 
-        uint8 command = internalMessageRouter(any2EvmMessage);
+        uint8 command = internalCommandRouter(any2EvmMessage);
 
         if (command == 0) {
             aWarpTokenMinter(any2EvmMessage);
