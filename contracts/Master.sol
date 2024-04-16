@@ -33,10 +33,29 @@ contract Master is ERC20, CCIPReceiver {
 
     bool public isNodeActive;
 
-    mapping(address => bool) public validNodes;
+    struct ActiveNodes {
+        bool isValidNode;
+        bool isNodeActive;
+        uint256 lastDataFromAave;
+        uint256 interestRate;
+        uint256 totalUsdcPool;
+    }
+
+    mapping(address => ActiveNodes) public activeNodes;
 
     //////////////////////////TESTING///////////////////
-    uint256 aUsdcCheckpointReference;
+
+    struct NonceDataWithdraw {
+        address userAddress;
+        uint256 amount;
+    }
+
+    mapping(uint128 => NonceDataWithdraw) public nonceDataWithdraw;
+    mapping(address => uint128[]) public userNoncesWithdraw;
+
+    mapping(uint128 => address) public userNoncesDeposits;
+
+    uint128 public mainNonceWithdraw;
 
     ///////////////////////////////CONSTRUCTOR//////////////////////////////
 
@@ -64,24 +83,20 @@ contract Master is ERC20, CCIPReceiver {
         (
             uint8 command,
             address userAddress,
-            uint256 amount,
-            uint256 totalAusdcNode
+            uint128 nonce,
+            uint256 shares
         ) = abi.decode(
                 _any2EvmMessage.data,
-                (uint8, address, uint256, uint256)
+                (uint8, address, uint128, uint256)
             );
+        require(
+            userNoncesDeposits[nonce] == address(0),
+            "Nonce already processed"
+        );
 
-        uint256 aWRPTotalSupply = totalSupply();
-        uint256 shares;
-        if (aWRPTotalSupply == 0) {
-            shares = amount;
-        } else {
-            shares = (amount * aWRPTotalSupply) / totalAusdcNode;
-        }
+        userNoncesDeposits[nonce] = userAddress;
 
-        aUsdcCheckpointReference = totalAusdcNode + amount;
-
-        _mint(userAddress, shares * 10 ** 12);
+        _mint(userAddress, shares);
 
         // TESTING //
     }
@@ -91,8 +106,9 @@ contract Master is ERC20, CCIPReceiver {
         Client.Any2EVMMessage memory any2EvmMessage
     ) internal override {
         require(
-            validNodes[abi.decode(any2EvmMessage.sender, (address))],
-            "Request from invalid node"
+            activeNodes[abi.decode(any2EvmMessage.sender, (address))]
+                .isValidNode,
+            "Request from invalid Node"
         );
 
         uint8 command = internalCommandRouter(any2EvmMessage);
@@ -100,7 +116,7 @@ contract Master is ERC20, CCIPReceiver {
         if (command == 0) {
             aWarpTokenMinter(any2EvmMessage);
         } else {
-            revert("invalid command from Slave");
+            revert("invalid command from Node");
         }
 
         emit MessageReceived(
@@ -122,7 +138,7 @@ contract Master is ERC20, CCIPReceiver {
             tokenAmounts: new Client.EVMTokenAmount[](0), // Empty array indicating no tokens are being sent
             extraArgs: Client._argsToBytes(
                 // Additional arguments, setting gas limit
-                Client.EVMExtraArgsV1({gasLimit: 2_000_000})
+                Client.EVMExtraArgsV1({gasLimit: 1_000_000})
             ),
             // Set the feeToken  address, indicating LINK will be used for fees
             feeToken: address(s_linkToken)
@@ -156,7 +172,7 @@ contract Master is ERC20, CCIPReceiver {
     }
 
     function addValidNode(address _node) public {
-        validNodes[_node] = true;
+        activeNodes[_node].isValidNode = true;
     }
 
     // cambiar esto para que los datos vayan codificados en bytes
@@ -166,7 +182,10 @@ contract Master is ERC20, CCIPReceiver {
         uint32 circleChainId,
         bytes32 mintRecipient
     ) public {
-        require(validNodes[nodeAddressReceiver], "Forbbiden, node not valid");
+        require(
+            activeNodes[nodeAddressReceiver].isValidNode,
+            "Forbbiden, node not valid"
+        );
         uint8 command = 0;
         bytes memory data = abi.encode(command, circleChainId, mintRecipient);
         _sendMessage(_destinationChainSelector, nodeAddressReceiver, data);
@@ -175,21 +194,21 @@ contract Master is ERC20, CCIPReceiver {
     function withdraw(
         uint64 _destinationChainSelector,
         address nodeAddressReceiver,
-        uint256 amount
+        uint256 shares
     ) external {
-        require(validNodes[nodeAddressReceiver], "Forbbiden, node not valid");
-        require(amount <= balanceOf(msg.sender), "Not enought balance");
+        require(
+            activeNodes[nodeAddressReceiver].isValidNode,
+            "Forbbiden, node not valid"
+        );
+        require(shares <= balanceOf(msg.sender), "Not enought balance");
 
         uint8 command = 1;
 
-        bytes memory data = abi.encode(
-            command,
-            msg.sender,
-            amount,
-            totalSupply(),
-            aUsdcCheckpointReference
-        );
-        _burn(msg.sender, amount);
+        bytes memory data = abi.encode(command, msg.sender, shares);
+        nonceDataWithdraw[mainNonceWithdraw].userAddress = msg.sender;
+        nonceDataWithdraw[mainNonceWithdraw].amount = shares;
+
+        _burn(msg.sender, shares);
 
         _sendMessage(_destinationChainSelector, nodeAddressReceiver, data);
     }

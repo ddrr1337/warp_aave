@@ -9,8 +9,8 @@ from brownie import (
 from scripts.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
 
-MASTER_CONTRACT_SEPOLIA = "0x36290f3d3701059ad8Eb4047548c7A38925eD9a4"
-ARBITRUM_RECEIVER = "0x7dD5457c1477FC721d4865aD01b87E786D64a04A"
+MASTER_CONTRACT_SEPOLIA = "0x084216A0AD8d54F35B060AEF35863B0EeBD32e9e"
+ARBITRUM_RECEIVER = "0x2539105f928df258EE5C883d549e82ebBF149D1E"
 
 tx_base = "0x453ae978d12682d8606f75e5536abb1d26b45e50c552f5b416537c590d81df91"
 
@@ -195,13 +195,13 @@ def deposit_slave(amount, account):
     )
 
 
-def withdraw_master(chainId, target_address_for_command, amount):
+def withdraw_master(chainId, target_address_for_command, amount, account):
     contract = Master[-1]
     withdraw = contract.withdraw(
         chainId,
         target_address_for_command,
         amount,
-        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
+        {"from": account, "gas_price": get_gas_price() * 1.5},
     )
 
 
@@ -239,9 +239,9 @@ def get_link_balance(account):
 
 
 def get_test_variables():
-    contract = Master[-1]
-    testerAusdcNode = contract.testerAusdcNode()
-    print("testerAusdcNode", testerAusdcNode)
+    contract = Slave[-1]
+    aWrpTotalSupplySlaveView = contract.aWrpTotalSupplySlaveView()
+    print(aWrpTotalSupplySlaveView / 10**18)
 
 
 def testing_return_funds():
@@ -260,20 +260,81 @@ def aWRP_balance(account):
     print(f"{balance/10**18} aWarp ETH")
 
 
+def tester_get_deposit_nonces_array(account):
+    contract = Slave[-1]
+    deposit_array = contract.getUserNonces(account)
+    print(deposit_array)
+    print(type(deposit_array))
+
+
+def tester_get_nonce_data_slave(nonce):
+    contract = Slave[-1]
+    response = contract.nonceDataDeposits(nonce)
+    print(response)
+
+
+def get_aWRP_totalSupply_slave():
+    contract = Slave[-1]
+    totalSupply = contract.aWrpTotalSupplySlaveView()
+    print("aWRP totalSupply Slave side: ", totalSupply, totalSupply / 10**18)
+
+
+def get_aWRP_totalSupply_master():
+    contract = Master[-1]
+    totalSupply = contract.totalSupply()
+    print("aWRP totalSupply Master side: ", totalSupply, totalSupply / 10**18)
+
+
+def master_nonce_withdraw(nonce):
+    contract = Master[-1]
+    address = contract.userNoncesDeposits(nonce)
+    print(address)
+
+
+def deposit_by_nonce(nonce, account):
+    contract = Slave[-1]
+    deposit = contract.sendDepositByNonce(
+        nonce, {"from": account, "gas_price": get_gas_price() * 1.5}
+    )
+
+
+def get_pool():
+    provider = interface.IPoolAddressesProvider(
+        config["networks"][network.show_active()].get("aave_pool_addresses_provider")
+    )
+    pool = provider.getPool()
+    print(pool)
+
+
+def get_Configuration(poolAddress):
+    contract = interface.IPool(poolAddress)
+    configuration = contract.getReserveNormalizedIncome(
+        config["networks"][network.show_active()].get("ausdc_circle_token")
+    )
+    print(configuration)
+
+
 def main():
+
     # testing_return_funds()
     # deploy_master()
     # deploy_slave()
     # add_valid_node(ARBITRUM_RECEIVER)
-    # deposit_slave(5 * 10**6, get_account(account="main"))
-    get_ausdc_balance(Slave[-1].address)
+    # deposit_slave(5 * 10**6, get_account(account="sec"))
+    # deposit_by_nonce(0, get_account(account="main"))
+    # get_ausdc_balance(Slave[-1].address)
     # aWRP_balance(get_account(account="main"))
+    # aWRP_balance(get_account(account="sec"))
+    # aWRP_balance(get_account(account="third"))
+    # get_aWRP_totalSupply_slave()
+    # get_aWRP_totalSupply_master()
     # get_usdc_balance(get_account(account="main"))
-    # get_link_balance(Slave[-1].address)
+    # get_link_balance(Master[-1].address)
     """withdraw_master(
         config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
         ARBITRUM_RECEIVER,
-        0.1 * 10**6,
+        4999995000004999995,
+        get_account(account="sec"),
     )"""
     """ warp_assets(
         config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
@@ -281,7 +342,9 @@ def main():
         config["networks"]["polygon-test"].get("circle_chain_id"),
         "0x26baAC08CB753303de111e904e19BaF91e6b5E4d",
     ) """
-
+    # tester_get_deposit_nonces_array(get_account(account="main"))
+    # master_nonce_withdraw(2)
+    # tester_get_nonce_data_slave(3)
     # get_terster_command()
     # get_test_variables()
 
@@ -297,6 +360,8 @@ def main():
     # test_deploy()
     # test_balance()
     # claim_assets(data_bytes(), get_attestation())
+
+    get_Configuration("0xBfC91D59fdAA134A4ED45f7B584cAf96D7792Eff")
     print("-------------------------------------------------------")
     # print("sepolia_ccip", Master[-1].address)
     # print("arbitrum_ccip", Slave[-1].address)
