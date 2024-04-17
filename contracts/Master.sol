@@ -108,10 +108,8 @@ contract Master is ERC20, CCIPReceiver {
                 (uint8, uint256, uint256, uint256)
             );
 
-        uint256 now = block.timestamp;
-
         activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
-            .lastDataFromAave = now;
+            .lastDataFromAave = block.timestamp;
         activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
             .totalUsdcSupply = totalUsdcSupply;
         activeNodes[abi.decode(_any2EvmMessage.sender, (address))]

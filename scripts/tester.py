@@ -65,10 +65,10 @@ def get_ausdc_balance(account):
 def main():
     # deploy_tester()
     # get_pool()
-    # get_usdc_balance(get_account(account="main"))
+    get_usdc_balance(Tester[-1].address)
     # approve_circle_usdc_on_tester(1 * 10**6, get_account(account="main"))
     # deposit_tester(1 * 10**6)
-    get_ausdc_balance(Tester[-1].address)
+    # get_ausdc_balance(Tester[-1].address)
     print("-------------------------------------------------------")
     # print("Tester", Tester[-1].address)
 

@@ -9,8 +9,8 @@ from brownie import (
 from scripts.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
 
-MASTER_CONTRACT_SEPOLIA = "0x7364A1307D5811a3C422FD70563b90E0A0Bb97C8"
-ARBITRUM_RECEIVER = "0xdF9B16E0Af9A943EebB6f7E4d1b3Ef42391f32d7"
+MASTER_CONTRACT_SEPOLIA = "0x26376E75f83A3e5f33D3d0DB8c03b27cF8CEDC63"
+ARBITRUM_RECEIVER = "0x1654aA7a74199748073E07E50b6B5156CBe3b8c9"
 
 tx_base = "0x453ae978d12682d8606f75e5536abb1d26b45e50c552f5b416537c590d81df91"
 
@@ -39,6 +39,7 @@ def deploy_slave():
         config["networks"][network.show_active()].get("usdc_circle_token"),
         config["networks"][network.show_active()].get("ausdc_circle_token"),
         config["networks"][network.show_active()].get("circle_token_messenger"),
+        config["networks"][network.show_active()].get("circle_message_transmitter"),
         config["networks"][network.show_active()].get("aave_pool_addresses_provider"),
         config["networks"][network.show_active()].get("aave_data_provider"),
         MASTER_CONTRACT_SEPOLIA,
@@ -336,15 +337,15 @@ def main():
     # deploy_master()
     # deploy_slave()
     # add_valid_node(ARBITRUM_RECEIVER)
-    # deposit_slave(5 * 10**6, get_account(account="sec"))
+    # deposit_slave(5 * 10**6, get_account(account="main"))
     # deposit_by_nonce(0, get_account(account="main"))
-    # get_ausdc_balance(Slave[-1].address)
+    get_ausdc_balance(Slave[-1].address)
     # aWRP_balance(get_account(account="main"))
     # aWRP_balance(get_account(account="sec"))
     # aWRP_balance(get_account(account="third"))
     # get_aWRP_totalSupply_slave()
     # get_aWRP_totalSupply_master()
-    # get_usdc_balance(get_account(account="main"))
+    get_usdc_balance(Slave[-1].address)
     # get_link_balance(Master[-1].address)
     """withdraw_master(
         config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
@@ -358,7 +359,7 @@ def main():
         config["networks"]["polygon-test"].get("circle_chain_id"),
         "0x26baAC08CB753303de111e904e19BaF91e6b5E4d",
     ) """
-    get_node_data(ARBITRUM_RECEIVER)
+    # get_node_data(ARBITRUM_RECEIVER)
     # tester_get_deposit_nonces_array(get_account(account="main"))
     # master_nonce_withdraw(2)
     # tester_get_nonce_data_slave(3)

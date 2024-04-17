@@ -7,6 +7,7 @@ import "../interfaces/IPool.sol";
 
 contract Tester {
     address public usdcAddress;
+    uint256 testerBalance;
 
     constructor(address _usdcAddress) {
         usdcAddress = _usdcAddress;
@@ -31,6 +32,7 @@ contract Tester {
         IERC20(usdcAddress).approve(pool, amount);
 
         IPool(pool).deposit(usdcAddress, amount, address(this), 0);
+        testerBalance = IERC20(usdcAddress).balanceOf(address(this));
     }
 
     function exit() public {
