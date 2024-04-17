@@ -83,6 +83,8 @@ contract Slave is CCIPReceiver {
     /// @param _tokenAUSDC The address of the ausdc provided by aave when deposit is done.
     /// @param _circleTokenMessengerAddress The address of the Circle token messenger contract.
     /// @param _POOL_ADDRESS_PROVIDER_ADDRESS The address of the Pool address provider contract (aave).
+    /// @param _POOL_DATA_PROVIDER_ADDRESS The address of the Pool data provider contract (aave).
+    /// @param _MASTER_CONTRACT The address of the master contract.
 
     constructor(
         address _router,

@@ -324,17 +324,10 @@ def feed_data_from_slave():
     )
 
 
-def tester():
-    contract = Slave[-1]
-    test = contract.tester(
-        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5}
-    )
-
-
-def tester_data():
-    contract = Slave[-1]
-    testData = contract.POOL_DATA_PROVIDER_ADDRESS()
-    print(testData)
+def get_node_data(node_address):
+    contract = Master[-1]
+    data_node = contract.activeNodes(node_address)
+    print(data_node)
 
 
 def main():
@@ -365,8 +358,7 @@ def main():
         config["networks"]["polygon-test"].get("circle_chain_id"),
         "0x26baAC08CB753303de111e904e19BaF91e6b5E4d",
     ) """
-    # tester()
-    # tester_data()
+    get_node_data(ARBITRUM_RECEIVER)
     # tester_get_deposit_nonces_array(get_account(account="main"))
     # master_nonce_withdraw(2)
     # tester_get_nonce_data_slave(3)
@@ -382,7 +374,6 @@ def main():
     # test_allowance()
     # send_to_burn(7)
 
-    # test_deploy()
     # test_balance()
     # claim_assets(data_bytes(), get_attestation())
 
