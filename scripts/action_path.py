@@ -387,7 +387,7 @@ def main():
     # claim_assets(data_bytes(), get_attestation())
 
     # get_reserves_data()
-    feed_data_from_slave()
+    # feed_data_from_slave()
     print("-------------------------------------------------------")
     # print("sepolia_ccip", Master[-1].address)
     # print("arbitrum_ccip", Slave[-1].address)
