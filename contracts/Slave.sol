@@ -11,6 +11,7 @@ import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interface
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/ITokenMessenger.sol";
 import "../interfaces/IPool.sol";
+import "../interfaces/IPoolDataProvider.sol";
 
 contract Slave is CCIPReceiver {
     // Event emitted when a message is received from another chain.
@@ -32,7 +33,7 @@ contract Slave is CCIPReceiver {
     uint64 public constant MASTER_CHAIN = 16015286601757825753; // harcoded sepolia id_cain CCIP
     address public immutable MASTER_CONTRACT;
 
-    address immutable POOL_ADDRESS_PROVIDER;
+    address immutable POOL_ADDRESS_PROVIDER_ADDRESS;
 
     IRouterClient private s_router;
 
@@ -56,7 +57,7 @@ contract Slave is CCIPReceiver {
     uint256 public aUsdcTokenSupply;
 
     ////////////////////TESTER ////////////////////////
-
+    address public immutable POOL_DATA_PROVIDER_ADDRESS;
     uint256 public aWrpTotalSupplySlaveView;
 
     struct NonceDataDeposits {
@@ -72,6 +73,7 @@ contract Slave is CCIPReceiver {
     mapping(uint128 => address) public userNoncesWithdraw;
 
     bool public newNonceAndSupply = true;
+
     ////////////////////////// CONSTRUCTOR ///////////////////////////
 
     /// @notice Constructor initializes the contract with the router address.
@@ -80,7 +82,7 @@ contract Slave is CCIPReceiver {
     /// @param _tokenUSDC The address of the Circle USDC token contract.
     /// @param _tokenAUSDC The address of the ausdc provided by aave when deposit is done.
     /// @param _circleTokenMessengerAddress The address of the Circle token messenger contract.
-    /// @param _POOL_ADDRESS_PROVIDER The address of the Pool address provider contract (aave).
+    /// @param _POOL_ADDRESS_PROVIDER_ADDRESS The address of the Pool address provider contract (aave).
 
     constructor(
         address _router,
@@ -88,7 +90,8 @@ contract Slave is CCIPReceiver {
         address _tokenUSDC,
         address _tokenAUSDC,
         address _circleTokenMessengerAddress,
-        address _POOL_ADDRESS_PROVIDER,
+        address _POOL_ADDRESS_PROVIDER_ADDRESS,
+        address _POOL_DATA_PROVIDER_ADDRESS,
         address _MASTER_CONTRACT
     ) CCIPReceiver(_router) {
         s_router = IRouterClient(_router);
@@ -97,8 +100,9 @@ contract Slave is CCIPReceiver {
         tokenUSDC = _tokenUSDC;
         tokenAUSDC = _tokenAUSDC;
         circleTokenMessengerAddress = _circleTokenMessengerAddress;
-        POOL_ADDRESS_PROVIDER = _POOL_ADDRESS_PROVIDER;
+        POOL_ADDRESS_PROVIDER_ADDRESS = _POOL_ADDRESS_PROVIDER_ADDRESS;
         MASTER_CONTRACT = _MASTER_CONTRACT;
+        POOL_DATA_PROVIDER_ADDRESS = _POOL_DATA_PROVIDER_ADDRESS;
     }
 
     function getUserNonces(
@@ -107,9 +111,9 @@ contract Slave is CCIPReceiver {
         return userNoncesDeposits[userAddress];
     }
 
-    function internalCommandRouter(
+    function _internalCommandRouter(
         Client.Any2EVMMessage memory _any2EvmMessage
-    ) public returns (uint8) {
+    ) internal returns (uint8) {
         uint8 command = abi.decode(_any2EvmMessage.data, (uint8));
 
         return command;
@@ -203,7 +207,7 @@ contract Slave is CCIPReceiver {
             "MASTER CHAIN ONLY"
         );
 
-        uint8 command = internalCommandRouter(any2EvmMessage);
+        uint8 command = _internalCommandRouter(any2EvmMessage);
 
         if (command == 0) {
             warpAssets(any2EvmMessage);
@@ -270,7 +274,8 @@ contract Slave is CCIPReceiver {
     }
 
     function _getPool() internal view returns (address) {
-        address pool = IPoolAddressesProvider(POOL_ADDRESS_PROVIDER).getPool();
+        address pool = IPoolAddressesProvider(POOL_ADDRESS_PROVIDER_ADDRESS)
+            .getPool();
 
         return pool;
     }
@@ -329,7 +334,33 @@ contract Slave is CCIPReceiver {
         _sendMessage(MASTER_CHAIN, MASTER_CONTRACT, data);
     }
 
-    function sendAaveData() public {}
+    function sendAaveData() public {
+        (
+            ,
+            ,
+            uint256 totalUsdcSupply,
+            ,
+            uint256 totalUsdcBorrow,
+            uint256 supplyRate,
+            ,
+            ,
+            ,
+            ,
+            ,
+
+        ) = IPoolDataProvider(POOL_DATA_PROVIDER_ADDRESS).getReserveData(
+                tokenUSDC
+            );
+
+        bytes memory data = abi.encode(
+            uint8(1),
+            totalUsdcSupply,
+            totalUsdcBorrow,
+            supplyRate
+        );
+
+        _sendMessage(MASTER_CHAIN, MASTER_CONTRACT, data);
+    }
 
     function testingReturnFunds() public {
         uint256 balance = IERC20(tokenAUSDC).balanceOf(address(this));

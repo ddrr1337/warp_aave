@@ -37,8 +37,9 @@ contract Master is ERC20, CCIPReceiver {
         bool isValidNode;
         bool isNodeActive;
         uint256 lastDataFromAave;
-        uint256 interestRate;
-        uint256 totalUsdcPool;
+        uint256 totalUsdcSupply;
+        uint256 totalUsdcBorrow;
+        uint256 supplyRate;
     }
 
     mapping(address => ActiveNodes) public activeNodes;
@@ -80,15 +81,10 @@ contract Master is ERC20, CCIPReceiver {
     function aWarpTokenMinter(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) public {
-        (
-            uint8 command,
-            address userAddress,
-            uint128 nonce,
-            uint256 shares
-        ) = abi.decode(
-                _any2EvmMessage.data,
-                (uint8, address, uint128, uint256)
-            );
+        (, address userAddress, uint128 nonce, uint256 shares) = abi.decode(
+            _any2EvmMessage.data,
+            (uint8, address, uint128, uint256)
+        );
         require(
             userNoncesDeposits[nonce] == address(0),
             "Nonce already processed"
@@ -99,6 +95,29 @@ contract Master is ERC20, CCIPReceiver {
         _mint(userAddress, shares);
 
         // TESTING //
+    }
+
+    function nodeAaveFeed(Client.Any2EVMMessage memory _any2EvmMessage) public {
+        (
+            ,
+            uint256 totalUsdcSupply,
+            uint256 totalUsdcBorrow,
+            uint256 supplyRate
+        ) = abi.decode(
+                _any2EvmMessage.data,
+                (uint8, uint256, uint256, uint256)
+            );
+
+        uint256 now = block.timestamp;
+
+        activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .lastDataFromAave = now;
+        activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .totalUsdcSupply = totalUsdcSupply;
+        activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .totalUsdcBorrow = totalUsdcBorrow;
+        activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .supplyRate = supplyRate;
     }
 
     /// handle a received message
@@ -115,6 +134,8 @@ contract Master is ERC20, CCIPReceiver {
 
         if (command == 0) {
             aWarpTokenMinter(any2EvmMessage);
+        } else if (command == 1) {
+            nodeAaveFeed(any2EvmMessage);
         } else {
             revert("invalid command from Node");
         }
@@ -175,7 +196,6 @@ contract Master is ERC20, CCIPReceiver {
         activeNodes[_node].isValidNode = true;
     }
 
-    // cambiar esto para que los datos vayan codificados en bytes
     function warpAssets(
         uint64 _destinationChainSelector,
         address nodeAddressReceiver,

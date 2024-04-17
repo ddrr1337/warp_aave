@@ -9,8 +9,8 @@ from brownie import (
 from scripts.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
 
-MASTER_CONTRACT_SEPOLIA = "0x084216A0AD8d54F35B060AEF35863B0EeBD32e9e"
-ARBITRUM_RECEIVER = "0x2539105f928df258EE5C883d549e82ebBF149D1E"
+MASTER_CONTRACT_SEPOLIA = "0x7364A1307D5811a3C422FD70563b90E0A0Bb97C8"
+ARBITRUM_RECEIVER = "0xdF9B16E0Af9A943EebB6f7E4d1b3Ef42391f32d7"
 
 tx_base = "0x453ae978d12682d8606f75e5536abb1d26b45e50c552f5b416537c590d81df91"
 
@@ -40,6 +40,7 @@ def deploy_slave():
         config["networks"][network.show_active()].get("ausdc_circle_token"),
         config["networks"][network.show_active()].get("circle_token_messenger"),
         config["networks"][network.show_active()].get("aave_pool_addresses_provider"),
+        config["networks"][network.show_active()].get("aave_data_provider"),
         MASTER_CONTRACT_SEPOLIA,
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
@@ -306,12 +307,34 @@ def get_pool():
     print(pool)
 
 
-def get_Configuration(poolAddress):
-    contract = interface.IPool(poolAddress)
-    configuration = contract.getReserveNormalizedIncome(
-        config["networks"][network.show_active()].get("ausdc_circle_token")
+def get_reserves_data():
+    contract = interface.IPoolDataProvider(
+        config["networks"][network.show_active()].get("aave_data_provider")
     )
-    print(configuration)
+    data = contract.getReserveData(
+        config["networks"][network.show_active()].get("usdc_circle_token")
+    )
+    print(data[5] / 10**27 * 100)
+
+
+def feed_data_from_slave():
+    contract = Slave[-1]
+    feed = contract.sendAaveData(
+        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5}
+    )
+
+
+def tester():
+    contract = Slave[-1]
+    test = contract.tester(
+        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5}
+    )
+
+
+def tester_data():
+    contract = Slave[-1]
+    testData = contract.POOL_DATA_PROVIDER_ADDRESS()
+    print(testData)
 
 
 def main():
@@ -342,6 +365,8 @@ def main():
         config["networks"]["polygon-test"].get("circle_chain_id"),
         "0x26baAC08CB753303de111e904e19BaF91e6b5E4d",
     ) """
+    # tester()
+    # tester_data()
     # tester_get_deposit_nonces_array(get_account(account="main"))
     # master_nonce_withdraw(2)
     # tester_get_nonce_data_slave(3)
@@ -361,7 +386,8 @@ def main():
     # test_balance()
     # claim_assets(data_bytes(), get_attestation())
 
-    get_Configuration("0xBfC91D59fdAA134A4ED45f7B584cAf96D7792Eff")
+    # get_reserves_data()
+    feed_data_from_slave()
     print("-------------------------------------------------------")
     # print("sepolia_ccip", Master[-1].address)
     # print("arbitrum_ccip", Slave[-1].address)
