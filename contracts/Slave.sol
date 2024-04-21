@@ -43,7 +43,7 @@ contract Slave is CCIPReceiver {
     address public tokenUSDC;
     address public tokenAUSDC;
     address public circleTokenMessengerAddress;
-    address public circleMessageTansmiter;
+    address public circleMessageTansmiterAddress;
 
     struct WarpIdToDestinationChain {
         uint32 circleChainId;
@@ -54,13 +54,14 @@ contract Slave is CCIPReceiver {
         public warpIdToDestinationChain;
     bytes32[] public warpIds;
 
-    bool public isNodeActive = true;
+    bool public isNodeActive = false;
 
     uint256 public aUsdcTokenSupply;
 
     ////////////////////TESTER ////////////////////////
 
     uint256 public aWrpTotalSupplySlaveView;
+    uint128 public mainNonceDeposits;
 
     struct NonceDataDeposits {
         address userAddress;
@@ -70,11 +71,12 @@ contract Slave is CCIPReceiver {
     mapping(uint128 => NonceDataDeposits) public nonceDataDeposits;
     mapping(address => uint128[]) public userNoncesDeposits;
 
-    uint128 public mainNonceDeposits;
-
     mapping(uint128 => address) public userNoncesWithdraw;
 
     bool public newNonceAndSupply = true;
+
+    bool public testerSuccess;
+    uint256 public testerBalanceUsdc;
 
     ////////////////////////// CONSTRUCTOR ///////////////////////////
 
@@ -94,7 +96,7 @@ contract Slave is CCIPReceiver {
         address _tokenUSDC,
         address _tokenAUSDC,
         address _circleTokenMessengerAddress,
-        address _circleMessageTansmiter,
+        address _circleMessageTansmiterAddress,
         address _POOL_ADDRESS_PROVIDER_ADDRESS,
         address _POOL_DATA_PROVIDER_ADDRESS,
         address _MASTER_CONTRACT
@@ -105,7 +107,7 @@ contract Slave is CCIPReceiver {
         tokenUSDC = _tokenUSDC;
         tokenAUSDC = _tokenAUSDC;
         circleTokenMessengerAddress = _circleTokenMessengerAddress;
-        circleMessageTansmiter = _circleMessageTansmiter;
+        circleMessageTansmiterAddress = _circleMessageTansmiterAddress;
         POOL_ADDRESS_PROVIDER_ADDRESS = _POOL_ADDRESS_PROVIDER_ADDRESS;
         MASTER_CONTRACT = _MASTER_CONTRACT;
         POOL_DATA_PROVIDER_ADDRESS = _POOL_DATA_PROVIDER_ADDRESS;
@@ -126,50 +128,59 @@ contract Slave is CCIPReceiver {
     }
 
     function warpAssets(Client.Any2EVMMessage memory _any2EvmMessage) public {
+        // halt deposits????
+        isNodeActive = false;
         (
             ,
-            uint32 destinationChainCircle,
-            uint64 destinationCahinCCIP,
-            bytes32 destinationAddress
+            uint32 newNodeChainId,
+            uint64 newNodeChainIdCCIP,
+            bytes32 newNodeReceiver
         ) = abi.decode(_any2EvmMessage.data, (uint8, uint32, uint64, bytes32));
 
-        // set isNodeActive false
+        uint256 balanceAusdcNode = IERC20(tokenAUSDC).balanceOf(address(this));
+        address pool = _getPool();
 
-        warpIdToDestinationChain[
-            _any2EvmMessage.messageId
-        ] = WarpIdToDestinationChain(
-            destinationChainCircle,
-            destinationAddress
-        );
+        IERC20(tokenAUSDC).approve(pool, balanceAusdcNode);
 
-        warpIds.push(_any2EvmMessage.messageId);
+        uint256 usdcwithdrawn = _assetsAllocationWithdraw();
 
-        uint256 balanceUsdc = IERC20(tokenUSDC).balanceOf(address(this));
-        IERC20(tokenUSDC).approve(circleTokenMessengerAddress, balanceUsdc);
+        testerBalanceUsdc = usdcwithdrawn;
+
+        IERC20(tokenUSDC).approve(circleTokenMessengerAddress, usdcwithdrawn);
 
         ITokenMessenger(circleTokenMessengerAddress).depositForBurn(
-            balanceUsdc,
-            destinationChainCircle,
-            destinationAddress,
+            usdcwithdrawn,
+            newNodeChainId,
+            newNodeReceiver,
             tokenUSDC
         );
 
+        _sendSupplyAndNonce(
+            newNodeChainIdCCIP,
+            address(uint160(uint256(newNodeReceiver)))
+        );
+    }
+
+    function _sendSupplyAndNonce(
+        uint64 chainCCIPid,
+        address nodeAddressReceiver
+    ) internal {
+        uint8 command = 2;
         bytes memory data = abi.encode(
-            uint8(2),
+            command,
             aWrpTotalSupplySlaveView,
             mainNonceDeposits
         );
 
-        _sendMessage(
-            destinationCahinCCIP,
-            address(uint160(uint256(destinationAddress))),
-            data
-        );
+        _sendMessage(chainCCIPid, nodeAddressReceiver, data);
     }
 
     function setTotalSupplyAndNonce(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) public {
+        //resume Deposits:
+        isNodeActive = true;
+
         (, uint256 _aWrpTotalSupplySlaveView, uint128 _mainNonceDeposits) = abi
             .decode(_any2EvmMessage.data, (uint8, uint256, uint128));
 
@@ -201,14 +212,14 @@ contract Slave is CCIPReceiver {
     function _ccipReceive(
         Client.Any2EVMMessage memory any2EvmMessage
     ) internal override {
-        require(
+        /* require(
             abi.decode(any2EvmMessage.sender, (address)) == MASTER_CONTRACT,
             "MASTER CONTRACT ONLY"
         );
         require(
             any2EvmMessage.sourceChainSelector == MASTER_CHAIN,
             "MASTER CHAIN ONLY"
-        );
+        ); */
 
         uint8 command = _internalCommandRouter(any2EvmMessage);
 
@@ -222,10 +233,10 @@ contract Slave is CCIPReceiver {
             revert("invalid command from Master");
         }
 
-        emit MessageReceived(
+        /* emit MessageReceived(
             any2EvmMessage.messageId,
             any2EvmMessage.sourceChainSelector // fetch the source chain identifier (aka selector)
-        );
+        ); */
     }
 
     function _sendMessage(
@@ -362,23 +373,41 @@ contract Slave is CCIPReceiver {
 
         _sendMessage(MASTER_CHAIN, MASTER_CONTRACT, data);
     }
-
-    function claimAsstsFromBridge(
+    function claimAssetsFromBridge(
         bytes calldata message,
         bytes calldata attestation
     ) public {
-        IMessageTransmitter(circleTokenMessengerAddress).receiveMessage(
-            message,
-            attestation
-        ); // returns bool
+        require(
+            IMessageTransmitter(circleMessageTansmiterAddress).receiveMessage(
+                message,
+                attestation
+            ),
+            "failed from circle bridge IMessageTransmitter returned false"
+        );
+        _assetsAllocationDeposit();
     }
 
-    function assetsAllocation() public {
+    function _assetsAllocationDeposit() internal {
         uint256 blanceUsdcNode = IERC20(tokenUSDC).balanceOf(address(this));
         address pool = _getPool();
 
         IERC20(tokenUSDC).approve(pool, blanceUsdcNode);
         IPool(pool).deposit(tokenUSDC, blanceUsdcNode, address(this), 0);
+    }
+
+    function _assetsAllocationWithdraw() internal returns (uint256) {
+        uint256 balanceAusdcNode = IERC20(tokenAUSDC).balanceOf(address(this));
+        address pool = _getPool();
+
+        IERC20(tokenAUSDC).approve(pool, balanceAusdcNode);
+
+        return IPool(pool).withdraw(tokenUSDC, balanceAusdcNode, address(this));
+    }
+
+    function _resumeWithdrawsNodeActive() internal {
+        bytes memory data = abi.encode(uint8(2));
+
+        _sendMessage(MASTER_CHAIN, MASTER_CONTRACT, data);
     }
 
     function testingReturnFunds() public {
@@ -388,5 +417,9 @@ contract Slave is CCIPReceiver {
 
         IERC20(tokenAUSDC).approve(pool, balance);
         IPool(pool).withdraw(tokenUSDC, balance, msg.sender);
+    }
+
+    function testingActivateNode() public {
+        isNodeActive = true;
     }
 }

@@ -31,8 +31,6 @@ contract Master is ERC20, CCIPReceiver {
 
     LinkTokenInterface private s_linkToken;
 
-    bool public isNodeActive;
-
     struct ActiveNodes {
         bool isValidNode;
         bool isNodeActive;
@@ -57,6 +55,7 @@ contract Master is ERC20, CCIPReceiver {
     mapping(uint128 => address) public userNoncesDeposits;
 
     uint128 public mainNonceWithdraw;
+    bool public allowedWithdraws = true;
 
     ///////////////////////////////CONSTRUCTOR//////////////////////////////
 
@@ -118,6 +117,14 @@ contract Master is ERC20, CCIPReceiver {
             .supplyRate = supplyRate;
     }
 
+    function _resumeWithdrawsNodeActive(
+        Client.Any2EVMMessage memory _any2EvmMessage
+    ) internal {
+        activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .isNodeActive = true;
+        allowedWithdraws = true;
+    }
+
     /// handle a received message
     function _ccipReceive(
         Client.Any2EVMMessage memory any2EvmMessage
@@ -134,6 +141,8 @@ contract Master is ERC20, CCIPReceiver {
             aWarpTokenMinter(any2EvmMessage);
         } else if (command == 1) {
             nodeAaveFeed(any2EvmMessage);
+        } else if (command == 2) {
+            _resumeWithdrawsNodeActive(any2EvmMessage);
         } else {
             revert("invalid command from Node");
         }
@@ -195,18 +204,25 @@ contract Master is ERC20, CCIPReceiver {
     }
 
     function warpAssets(
-        uint64 _destinationChainSelector,
+        uint64 nodeChainIdCCIP,
         address nodeAddressReceiver,
-        uint32 circleChainId,
-        bytes32 mintRecipient
+        uint32 newNodeChainId,
+        uint64 newNodeChainIdCCIP,
+        bytes32 newNodeReceiver
     ) public {
         require(
             activeNodes[nodeAddressReceiver].isValidNode,
             "Forbbiden, node not valid"
         );
+        allowedWithdraws = false;
         uint8 command = 0;
-        bytes memory data = abi.encode(command, circleChainId, mintRecipient);
-        _sendMessage(_destinationChainSelector, nodeAddressReceiver, data);
+        bytes memory data = abi.encode(
+            command,
+            newNodeChainId,
+            newNodeChainIdCCIP,
+            newNodeReceiver
+        );
+        _sendMessage(nodeChainIdCCIP, nodeAddressReceiver, data);
     }
 
     function withdraw(
@@ -217,6 +233,10 @@ contract Master is ERC20, CCIPReceiver {
         require(
             activeNodes[nodeAddressReceiver].isValidNode,
             "Forbbiden, node not valid"
+        );
+        require(
+            allowedWithdraws,
+            "Assets warping withdraws halted in the process"
         );
         require(shares <= balanceOf(msg.sender), "Not enought balance");
 

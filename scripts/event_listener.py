@@ -1,17 +1,11 @@
-from brownie import Contract, network, config, interface
+from brownie import Contract, Slave, network, config, interface
 from scripts.helpfull_scripts import get_account, get_gas_price, approve_erc20
 from .tx_handler import TxHandler
 from web3 import Web3
 from hexbytes import HexBytes
 
-# Asegúrate de establecer la red correctamente en tu script
 
-
-# Dirección del contrato y nombre del evento
-
-tx_usdc = "0x3aeeaadddc69489029703d10109af6dcde68b2a5671d9328f2dc43ce8a70d6d9"
-# tx_usdc = "0xe2900d950335010a5e8c29ac630c7997a6a415e51567c5e5aece3619d0bff682"
-# Reemplaza con el nombre del evento que deseas escuchar
+final_tx = "0xb5b77960afc2737fec38cac02e4231582d6ce954f9eb06ce89d96e2a0b1a865b"
 
 
 # Carga el contrato
@@ -21,22 +15,35 @@ contract = interface.IERC20(
 balance = contract.balanceOf(get_account(account="main"))
 
 
-def data_bytes():
-    tx = TxHandler(tx_usdc, config["networks"][network.show_active()].get("host"))
+def data_bytes(tx_hash):
+    tx = TxHandler(tx_hash, config["networks"][network.show_active()].get("host"))
     return "0x" + tx.retrieve_data_bytes()[0].hex()
 
 
-def get_attestation():
-    tx = TxHandler(tx_usdc, config["networks"][network.show_active()].get("host"))
+def get_attestation(tx_hash):
+    tx = TxHandler(tx_hash, config["networks"][network.show_active()].get("host"))
 
     attestation = tx.get_attestation_from_circle()
 
     return attestation["attestation"]
 
 
+def get_data(tx):
+    print("-------------------------messageBytes-------------------------------------")
+    print(data_bytes(tx))
+    print("-------------------------attestation-------------------------------------")
+    print(get_attestation(tx))
+
+
+found = False
+
+
 def callBack(event):
+    global found
+
     print("Tx: ", event.transactionHash.hex())
     print("---------------------------------------------------------")
+    found = True
 
     tx_read = event.transactionHash.hex()
     tx = TxHandler(tx_read, config["networks"][network.show_active()].get("host"))
@@ -50,38 +57,26 @@ def callBack(event):
 
             address_hex = "0x" + log["topics"][1].hex()[-40:]
 
-            if address_hex == "0x127B4Ba64A2F6523B9892ecABe8bA0832fd7b76b".lower():
+            if address_hex == Slave[-1].address.lower():
                 print(
                     "-------------------------messageBytes-------------------------------------"
                 )
-                print(data_bytes())
+                print(data_bytes(event.transactionHash.hex()))
+                # print(data_bytes(final_tx))
                 print(
                     "-------------------------attestation-------------------------------------"
                 )
-                print(get_attestation())
+                print(get_attestation(event.transactionHash.hex()))
+                # print(get_attestation(final_tx))
 
 
 contract.events.subscribe("Transfer", callBack)
 
 
-def get_attestation():
-    tx = TxHandler(tx_usdc, config["networks"][network.show_active()].get("host"))
-
-    attestation = tx.get_attestation_from_circle()
-
-    return attestation["attestation"]
-
-
 def main():
+    """print("-----------------------LISTENING EVENTS-----------------------------------")
+    while not found:
 
-    while True:
-        pass
+        pass"""
 
-    print("-------------------------messageBytes-------------------------------------")
-    # print(data_bytes())
-    print("-------------------------attestation-------------------------------------")
-    # print(get_attestation())
-
-    print(
-        "--------------------------------------txData----------------------------------"
-    )
+    get_data("0x0354eaea4811bbc63699558226fa55b7d6caa212c0047cba0bced7e6f12c335e")
