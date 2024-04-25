@@ -4,7 +4,7 @@ from brownie import (
     network,
     interface,
 )
-from scripts.helpfull_scripts import get_account, get_gas_price, approve_erc20
+from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
 
 TESTER_ARBITRUM = "0x28541129a4f502f5532Bc9939453a63EE5719aE1"
@@ -114,7 +114,7 @@ def main():
     # usdc_balance(Tester[-1])
 
     # send_to_bridge(0.001 * 10**6)
-    # claim_from_bridge(get_account(account="main"))
+    claim_from_bridge(get_account(account="main"))
     # print(Tester[-1])
     print("-------------------------------------------------------")
     # print("Tester", Tester[-1].address)

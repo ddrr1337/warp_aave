@@ -4,7 +4,8 @@ from brownie import (
     network,
     interface,
 )
-from scripts.helpfull_scripts import get_account, get_gas_price, approve_erc20
+
+from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
 
 def deploy_bridge():
@@ -64,18 +65,18 @@ def multiple_deploy():
 
 def main():
     # deploy_bridge()
-    multiple_deploy()
-    # print(config.__dict__)
+    # multiple_deploy()
+    print(get_account(account="main"))
     # get_pool()
     # get_usdc_balance(Bridge[-1].address)
 
     # allowance(get_account(account="main").address)
 
-    """ send_to_bridge(
+    """send_to_bridge(
         1.1 * 10**6,
         config["networks"]["arbitrum_sepolia"].get("circle_chain_id"),
         get_account(account="main"),
-    ) """
+    )"""
 
     print("-------------------------------------------------------")
     # print("Bridge Contract", Bridge[-1].address)

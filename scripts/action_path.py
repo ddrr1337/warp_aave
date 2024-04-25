@@ -6,7 +6,7 @@ from brownie import (
     network,
     interface,
 )
-from scripts.helpfull_scripts import get_account, get_gas_price, approve_erc20
+from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
 
 MASTER_CONTRACT_SEPOLIA = "0x1b3Eff336445043B4C615BCab9271F2167B88064"

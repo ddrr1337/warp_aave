@@ -1,6 +1,6 @@
 from brownie import Contract, Slave, network, config, interface
-from scripts.helpfull_scripts import get_account, get_gas_price, approve_erc20
-from .tx_handler import TxHandler
+from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
+from utils.tx_handler import TxHandler
 from web3 import Web3
 from hexbytes import HexBytes
 
