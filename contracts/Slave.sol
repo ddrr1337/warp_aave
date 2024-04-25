@@ -15,6 +15,7 @@ import "../interfaces/IPool.sol";
 import "../interfaces/IPoolDataProvider.sol";
 
 contract Slave is CCIPReceiver {
+    event Deposit(address indexed from, uint256 amount, uint256 timestamp);
     // Event emitted when a message is received from another chain.
     event MessageReceived(
         bytes32 indexed messageId, // The unique ID of the message.
@@ -208,6 +209,17 @@ contract Slave is CCIPReceiver {
         IPool(pool).withdraw(tokenUSDC, amount / 10 ** 18, transferToUser);
     }
 
+    //FRONTEND UTIL NO CONTRACT USE
+    function calculateSharesValue(
+        uint256 shares
+    ) external view returns (uint256) {
+        uint256 totalAusdc = IERC20(tokenAUSDC).balanceOf(address(this));
+        uint256 amount = ((shares * 10 ** 18) * totalAusdc) /
+            aWrpTotalSupplySlaveView;
+
+        return amount / 10 ** 18;
+    }
+
     /// handle a received message
     function _ccipReceive(
         Client.Any2EVMMessage memory any2EvmMessage
@@ -328,6 +340,7 @@ contract Slave is CCIPReceiver {
         IPool(pool).deposit(tokenUSDC, amount, address(this), 0);
 
         _sendMessage(MASTER_CHAIN, MASTER_CONTRACT, data);
+        emit Deposit(msg.sender, shares, block.timestamp);
     }
 
     function sendDepositByNonce(uint128 _nonce) public {

@@ -11,6 +11,7 @@ import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interface
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract Master is ERC20, CCIPReceiver {
+    event Withdraw(address indexed from, uint256 amount, uint256 timestamp);
     // Event emitted when a message is received from another chain.
     event MessageReceived(
         bytes32 indexed messageId, // The unique ID of the message.
@@ -43,6 +44,7 @@ contract Master is ERC20, CCIPReceiver {
     mapping(address => ActiveNodes) public activeNodes;
 
     //////////////////////////TESTING///////////////////
+    uint256 public lastTimeWarped;
 
     struct NonceDataWithdraw {
         address userAddress;
@@ -222,6 +224,7 @@ contract Master is ERC20, CCIPReceiver {
             newNodeChainIdCCIP,
             newNodeReceiver
         );
+        lastTimeWarped = block.timestamp;
         _sendMessage(nodeChainIdCCIP, nodeAddressReceiver, data);
     }
 
@@ -249,5 +252,6 @@ contract Master is ERC20, CCIPReceiver {
         _burn(msg.sender, shares);
 
         _sendMessage(_destinationChainSelector, nodeAddressReceiver, data);
+        emit Withdraw(msg.sender, shares, block.timestamp);
     }
 }

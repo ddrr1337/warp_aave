@@ -9,9 +9,9 @@ from brownie import (
 from scripts.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
 
-MASTER_CONTRACT_SEPOLIA = "0xBe228f5726bF7c8ad28493D1e48de6b7Efb12fc5"
-ARBITRUM_NODE = "0x58Af01A9ab59e12a2CdB95B8AFc85CeEe47c6818"
-OPTIMISTIC_NODE = "0xC291786C4Ca1d985FC6f4b5428300263Be529db5"
+MASTER_CONTRACT_SEPOLIA = "0x1b3Eff336445043B4C615BCab9271F2167B88064"
+ARBITRUM_NODE = "0x78c43A399819BF382e94B2F29e06Aa191c656126"
+OPTIMISTIC_NODE = ""
 
 tx_base = "0x453ae978d12682d8606f75e5536abb1d26b45e50c552f5b416537c590d81df91"
 
@@ -360,11 +360,10 @@ def claim_from_bridge(message, attestation, account):
 
 def main():
 
-    # testing_return_funds()
+    testing_return_funds()
     # deploy_master()
     # deploy_slave()
-
-    # add_valid_nodes([ARBITRUM_NODE, OPTIMISTIC_NODE])
+    # add_valid_nodes([ARBITRUM_NODE])
 
     # deposit_slave(1 * 10**6, get_account(account="main"))
     # deposit_by_nonce(0, get_account(account="main"))
@@ -373,14 +372,14 @@ def main():
     # aWRP_balance(get_account(account="sec"))
     # aWRP_balance(get_account(account="third"))
     # get_aWRP_totalSupply_slave()
-    get_aWRP_totalSupply_master()
+    # get_aWRP_totalSupply_master()
     # get_usdc_balance(Slave[-1].address)
     # get_link_balance(Master[-1].address)
     """withdraw_master(
         config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
         ARBITRUM_NODE,
-        5000000000000000000,
-        get_account(account="third"),
+        1 * 10**18,
+        get_account(account="sec"),
     )"""
     """ warp_assets(
         config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
@@ -417,6 +416,6 @@ def main():
     # get_reserves_data()
     # feed_data_from_slave()
     print("-------------------------------------------------------")
-    # print("sepolia_ccip", Master[-1].address)
+    # print("sepolia_ccip", Slave[-2].address)
     # print("arbitrum_ccip", Slave[-1].address)
     print("-------------------------------------------------------")
