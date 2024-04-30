@@ -56,6 +56,7 @@ class TxHandler:
 
         try:
             message_hash = self.message_hash()
+
             url = f"{self.cirle_api_endpoint}{message_hash}"
 
             response = requests.get(url)

@@ -7,11 +7,12 @@ from brownie import (
     interface,
 )
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
+from eth_abi import encode
 
 
-MASTER_CONTRACT_SEPOLIA = "0x1b3Eff336445043B4C615BCab9271F2167B88064"
-ARBITRUM_NODE = "0x78c43A399819BF382e94B2F29e06Aa191c656126"
-OPTIMISTIC_NODE = ""
+MASTER_CONTRACT_SEPOLIA = "0x3288610439e971200A19F43f6c3FE0ca48717639"
+ARBITRUM_NODE = "0xC0c05E0e4e89AC3c60b44Cd5db0d5BAe68A3b090"
+OPTIMISTIC_NODE = "0x6DfaDc22e43CC05f17D469514fA33CEacBdcbB6A"
 
 tx_base = "0x453ae978d12682d8606f75e5536abb1d26b45e50c552f5b416537c590d81df91"
 
@@ -33,7 +34,7 @@ def deploy_master():
     print("Sent 0.5Link to Sender contract")
 
 
-def deploy_slave():
+def deploy_slave(master_contract_address):
     deploy = Slave.deploy(
         config["networks"][network.show_active()].get("router_ccip_address"),
         config["networks"][network.show_active()].get("link_token"),
@@ -43,10 +44,11 @@ def deploy_slave():
         config["networks"][network.show_active()].get("circle_message_transmitter"),
         config["networks"][network.show_active()].get("aave_pool_addresses_provider"),
         config["networks"][network.show_active()].get("aave_data_provider"),
-        MASTER_CONTRACT_SEPOLIA,
+        master_contract_address,
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
-    link_contract = interface.IERC20(
+
+    """ link_contract = interface.IERC20(
         config["networks"][network.show_active()].get("link_token")
     )
     transfer = link_contract.transfer(
@@ -55,7 +57,7 @@ def deploy_slave():
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
     print("Sent 0.5Link to Sender contract")
-
+ """
     if network.show_active() == "arbitrum_sepolia":
         activate_node = deploy.testingActivateNode()
         print("Arbitrum Node Active For Deposits")
@@ -115,15 +117,6 @@ def add_valid_node(address):
 def add_valid_nodes(nodes):
     for node in nodes:
         add_valid_node(node)
-
-
-def approve_to_burn():
-    approve_erc20(
-        config["networks"][network.show_active()].get("circle_token_messenger"),
-        0.001 * 10**6,
-        config["networks"][network.show_active()].get("usdc_circle_token"),
-        get_account(account="main"),
-    )
 
 
 def send_to_burn(target_chain_id):
@@ -194,12 +187,55 @@ def approve_circle_usdc_on_slave(amount, account):
     )
 
 
+def get_link_fee(instance):
+    contract = instance
+    uint8_command = 0  # command for deposit
+    dummy_mainNonceDeposits = 4  # abritrary number
+    dummy_shares = 150 * 10**18  # arbitrary number
+
+    dummy_bytes = encode(
+        ["uint8", "address", "uint128", "uint256"],
+        [
+            uint8_command,
+            get_account(account="main").address,
+            dummy_mainNonceDeposits,
+            dummy_shares,
+        ],
+    )
+
+    get_fee = contract.getLinkFees(
+        16015286601757825753, get_account(account="main").address, dummy_bytes
+    )
+    print(get_fee / 10**18)
+    return get_fee
+
+
 def deposit_slave(amount, account):
+    link_fee = get_link_fee() * 1.2
+    approve_link_to_slave(link_fee, account)
     approve_circle_usdc_on_slave(amount, account)
     contract = Slave[-1]
     deposit = contract.deposit(
         amount,
         {"from": account, "gas_price": get_gas_price() * 1.5},
+    )
+
+
+def approve_to_burn():
+    approve_erc20(
+        config["networks"][network.show_active()].get("circle_token_messenger"),
+        0.001 * 10**6,
+        config["networks"][network.show_active()].get("usdc_circle_token"),
+        get_account(account="main"),
+    )
+
+
+def approve_link_to_slave(amount, account):
+    approve_erc20(
+        Slave[-1].address,
+        amount,
+        config["networks"][network.show_active()].get("link_token"),
+        account,
     )
 
 
@@ -337,12 +373,6 @@ def get_node_data(node_address):
     print(data_node)
 
 
-def testerSuccess():
-    contract = Slave[-1]
-    success = contract.aWrpTotalSupplySlaveView()
-    print(success)
-
-
 def testerSupplyNonce(address):
     contract = Slave[-1]
     send = contract.testerSendSupplyAndNonce(
@@ -358,13 +388,35 @@ def claim_from_bridge(message, attestation, account):
     )
 
 
+def deploy_sepolia_arbitrum_optimistic():
+    sepolia_master_contract = ""
+    deploy_master()
+    sepolia_master_contract = Master[-1].address
+    print("------------------------------------------------------------")
+    print(f"Deployed Master on {network.show_active()} at {Master[-1].address}")
+    print("------------------------------------------------------------")
+    network.disconnect()
+    network.connect("arbitrum_sepolia")
+    deploy_slave(sepolia_master_contract)
+    print("------------------------------------------------------------")
+    print(f"Deployed Node on {network.show_active()} at {Slave[-1].address}")
+    print("------------------------------------------------------------")
+    network.disconnect()
+    network.connect("optimistic_sepolia")
+    deploy_slave(sepolia_master_contract)
+    print("------------------------------------------------------------")
+    print(f"Deployed Node on {network.show_active()} at {Slave[-1].address}")
+    print("------------------------------------------------------------")
+
+
 def main():
 
-    testing_return_funds()
+    # testing_return_funds()
     # deploy_master()
     # deploy_slave()
-    # add_valid_nodes([ARBITRUM_NODE])
 
+    # deploy_sepolia_arbitrum_optimistic()
+    # add_valid_nodes([ARBITRUM_NODE, OPTIMISTIC_NODE])
     # deposit_slave(1 * 10**6, get_account(account="main"))
     # deposit_by_nonce(0, get_account(account="main"))
     # get_ausdc_balance(Slave[-1].address)
@@ -373,7 +425,7 @@ def main():
     # aWRP_balance(get_account(account="third"))
     # get_aWRP_totalSupply_slave()
     # get_aWRP_totalSupply_master()
-    # get_usdc_balance(Slave[-1].address)
+    get_usdc_balance(get_account(account="main"))
     # get_link_balance(Master[-1].address)
     """withdraw_master(
         config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
@@ -388,7 +440,8 @@ def main():
         config["networks"]["optimistic_sepolia"].get("BC_identifier"),
         OPTIMISTIC_NODE,
     ) """
-    # testerSuccess()
+    # get_link_fee(Slave[-1], config["networks"]["sepolia"].get("BC_identifier"))
+
     # testerSupplyNonce("0xAF2650dBc39b6911D4788548CD98FD1d61a653dF")
     # get_node_data(ARBITRUM_NODE)
     # tester_get_deposit_nonces_array(get_account(account="main"))

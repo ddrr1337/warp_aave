@@ -179,6 +179,10 @@ contract Master is ERC20, CCIPReceiver {
             destinationChainSelector,
             evm2AnyMessage
         );
+        require(
+            s_linkToken.transferFrom(msg.sender, address(this), fees),
+            "Not Link transfered for paying CCIP fees"
+        );
 
         if (fees > s_linkToken.balanceOf(address(this)))
             revert NotEnoughBalance(s_linkToken.balanceOf(address(this)), fees);
@@ -253,5 +257,30 @@ contract Master is ERC20, CCIPReceiver {
 
         _sendMessage(_destinationChainSelector, nodeAddressReceiver, data);
         emit Withdraw(msg.sender, shares, block.timestamp);
+    }
+
+    function getLinkFees(
+        uint64 destinationChainSelector,
+        address receiver,
+        bytes memory _data
+    ) public view returns (uint256) {
+        Client.EVM2AnyMessage memory evm2AnyMessage = Client.EVM2AnyMessage({
+            receiver: abi.encode(receiver), // ABI-encoded receiver address
+            data: _data, // ABI-encoded data
+            tokenAmounts: new Client.EVMTokenAmount[](0), // Empty array indicating no tokens are being sent
+            extraArgs: Client._argsToBytes(
+                // Additional arguments, setting gas limit
+                Client.EVMExtraArgsV1({gasLimit: 1_000_000})
+            ),
+            // Set the feeToken  address, indicating LINK will be used for fees
+            feeToken: address(s_linkToken)
+        });
+
+        // Get the fee required to send the message
+        uint256 fees = s_router.getFee(
+            destinationChainSelector,
+            evm2AnyMessage
+        );
+        return fees;
     }
 }

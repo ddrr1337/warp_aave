@@ -92,6 +92,7 @@ networks:
 
   sepolia:
     circle_token_messenger: "0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5"
+    circle_message_transmitter: "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD"
     circle_chain_id: 0
     BC_identifier: 16015286601757825753
     router_ccip_address: "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59"

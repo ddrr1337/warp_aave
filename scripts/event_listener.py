@@ -5,7 +5,7 @@ from web3 import Web3
 from hexbytes import HexBytes
 
 
-final_tx = "0xb5b77960afc2737fec38cac02e4231582d6ce954f9eb06ce89d96e2a0b1a865b"
+final_tx = "0xbfbd4407b6a3dbd0a442e52c3abec7dc9373c784a983c1165dfa236299eaa323"
 
 
 # Carga el contrato
@@ -28,9 +28,18 @@ def get_attestation(tx_hash):
     return attestation["attestation"]
 
 
+def get_data_hash(tx_hash):
+    tx = TxHandler(tx_hash, config["networks"][network.show_active()].get("host"))
+    message_hash = tx.message_hash()
+
+    return message_hash
+
+
 def get_data(tx):
     print("-------------------------messageBytes-------------------------------------")
     print(data_bytes(tx))
+    print("-------------------------messageHash-------------------------------------")
+    print(get_data_hash(tx))
     print("-------------------------attestation-------------------------------------")
     print(get_attestation(tx))
 
@@ -79,4 +88,4 @@ def main():
 
         pass"""
 
-    get_data("0x0354eaea4811bbc63699558226fa55b7d6caa212c0047cba0bced7e6f12c335e")
+    get_data("0x04e893d9f3df21f99720914b4a6524dffc597eb0c21f18d843fb8fb9769009b7")
