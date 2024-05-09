@@ -59,7 +59,9 @@ def approve_erc20(spender, amount, erc20_address, account):
     print(f"DAI address: {erc20.address}")
     print(f"Contract spender: {spender}")
 
-    print(f"Approved {allowance} of ERC20 to this spender: {spender}")
+    print(
+        f"Approved {allowance} {allowance/10**18} of ERC20 to this spender: {spender}"
+    )
     return tx
 
 

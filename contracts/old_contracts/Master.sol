@@ -28,36 +28,30 @@ contract Master is ERC20, CCIPReceiver {
         uint256 fees // The fees paid for sending the CCIP message.
     );
 
+    uint64 public immutable MASTER_CHAIN;
+    address public activeNode;
     IRouterClient private s_router;
 
     LinkTokenInterface private s_linkToken;
 
-    struct ActiveNodes {
+    struct ValidNodes {
         bool isValidNode;
-        bool isNodeActive;
+        bool isActiveNode;
+        uint64 chainCCIPid;
         uint256 lastDataFromAave;
         uint256 totalUsdcSupply;
         uint256 totalUsdcBorrow;
         uint256 supplyRate;
+        uint256 nodeLinkBalance;
+        uint256 lastLinkFees;
     }
 
-    mapping(address => ActiveNodes) public activeNodes;
+    mapping(address => ValidNodes) public validNodes;
+
+    uint256 public constant LINK_BUFFER = 1 * 10 ** 18;
 
     //////////////////////////TESTING///////////////////
     uint256 public lastTimeWarped;
-
-    struct NonceDataWithdraw {
-        address userAddress;
-        uint256 amount;
-    }
-
-    mapping(uint128 => NonceDataWithdraw) public nonceDataWithdraw;
-    mapping(address => uint128[]) public userNoncesWithdraw;
-
-    mapping(uint128 => address) public userNoncesDeposits;
-
-    uint128 public mainNonceWithdraw;
-    bool public allowedWithdraws = true;
 
     ///////////////////////////////CONSTRUCTOR//////////////////////////////
 
@@ -65,10 +59,12 @@ contract Master is ERC20, CCIPReceiver {
     /// @param _router The address of the router contract.
     constructor(
         address _router,
-        address _link
+        address _link,
+        uint64 _MASTER_CHAIN
     ) ERC20("WarpYield", "aWRP") CCIPReceiver(_router) {
         s_router = IRouterClient(_router);
         s_linkToken = LinkTokenInterface(_link);
+        MASTER_CHAIN = _MASTER_CHAIN;
     }
 
     function internalCommandRouter(
@@ -82,16 +78,10 @@ contract Master is ERC20, CCIPReceiver {
     function aWarpTokenMinter(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) public {
-        (, address userAddress, uint128 nonce, uint256 shares) = abi.decode(
+        (, address userAddress, uint256 shares) = abi.decode(
             _any2EvmMessage.data,
-            (uint8, address, uint128, uint256)
+            (uint8, address, uint256)
         );
-        require(
-            userNoncesDeposits[nonce] == address(0),
-            "Nonce already processed"
-        );
-
-        userNoncesDeposits[nonce] = userAddress;
 
         _mint(userAddress, shares);
 
@@ -99,32 +89,44 @@ contract Master is ERC20, CCIPReceiver {
     }
 
     function nodeAaveFeed(Client.Any2EVMMessage memory _any2EvmMessage) public {
+        require(
+            validNodes[abi.decode(_any2EvmMessage.sender, (address))]
+                .isValidNode,
+            "Node is not valid"
+        );
+
         (
             ,
             uint256 totalUsdcSupply,
             uint256 totalUsdcBorrow,
-            uint256 supplyRate
+            uint256 supplyRate,
+            uint256 nodeLinkBalance,
+            uint256 lastLinkFees
         ) = abi.decode(
                 _any2EvmMessage.data,
-                (uint8, uint256, uint256, uint256)
+                (uint8, uint256, uint256, uint256, uint256, uint256)
             );
 
-        activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
             .lastDataFromAave = block.timestamp;
-        activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
             .totalUsdcSupply = totalUsdcSupply;
-        activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
             .totalUsdcBorrow = totalUsdcBorrow;
-        activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
             .supplyRate = supplyRate;
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .nodeLinkBalance = nodeLinkBalance;
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .lastLinkFees = lastLinkFees;
     }
 
     function _resumeWithdrawsNodeActive(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) internal {
-        activeNodes[abi.decode(_any2EvmMessage.sender, (address))]
-            .isNodeActive = true;
-        allowedWithdraws = true;
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .isActiveNode = true;
+        activeNode = abi.decode(_any2EvmMessage.sender, (address));
     }
 
     /// handle a received message
@@ -132,7 +134,7 @@ contract Master is ERC20, CCIPReceiver {
         Client.Any2EVMMessage memory any2EvmMessage
     ) internal override {
         require(
-            activeNodes[abi.decode(any2EvmMessage.sender, (address))]
+            validNodes[abi.decode(any2EvmMessage.sender, (address))]
                 .isValidNode,
             "Request from invalid Node"
         );
@@ -205,57 +207,56 @@ contract Master is ERC20, CCIPReceiver {
         return messageId;
     }
 
-    function addValidNode(address _node) public {
-        activeNodes[_node].isValidNode = true;
+    function addValidNode(
+        address nodeAddress,
+        uint64 chainCCIPid,
+        bool isActiveNode
+    ) public {
+        validNodes[nodeAddress].isValidNode = true;
+        validNodes[nodeAddress].chainCCIPid = chainCCIPid;
+        validNodes[nodeAddress].isActiveNode = isActiveNode;
+        if (isActiveNode) {
+            activeNode = nodeAddress;
+        }
     }
 
     function warpAssets(
-        uint64 nodeChainIdCCIP,
-        address nodeAddressReceiver,
-        uint32 newNodeChainId,
-        uint64 newNodeChainIdCCIP,
+        uint32 newNodeChainIdCCTPid,
+        uint64 newNodeChainIdCCIPid,
         bytes32 newNodeReceiver
-    ) public {
-        require(
-            activeNodes[nodeAddressReceiver].isValidNode,
-            "Forbbiden, node not valid"
-        );
-        allowedWithdraws = false;
-        uint8 command = 0;
-        bytes memory data = abi.encode(
-            command,
-            newNodeChainId,
-            newNodeChainIdCCIP,
-            newNodeReceiver
-        );
-        lastTimeWarped = block.timestamp;
-        _sendMessage(nodeChainIdCCIP, nodeAddressReceiver, data);
-    }
-
-    function withdraw(
-        uint64 _destinationChainSelector,
-        address nodeAddressReceiver,
-        uint256 shares
     ) external {
         require(
-            activeNodes[nodeAddressReceiver].isValidNode,
+            validNodes[activeNode].isValidNode,
             "Forbbiden, node not valid"
         );
         require(
-            allowedWithdraws,
-            "Assets warping withdraws halted in the process"
+            validNodes[activeNode].isActiveNode,
+            "Forbbiden, node not active"
         );
+
+        bytes memory data = abi.encode(
+            uint8(0),
+            newNodeChainIdCCTPid,
+            newNodeChainIdCCIPid,
+            newNodeReceiver
+        );
+        /*         lastTimeWarped = block.timestamp;
+        activeNode = address(0); */
+        validNodes[activeNode].isActiveNode = false;
+
+        _sendMessage(validNodes[activeNode].chainCCIPid, activeNode, data);
+    }
+
+    function withdraw(uint256 shares) external {
+        require(validNodes[activeNode].isActiveNode, "Node is not Active");
+
         require(shares <= balanceOf(msg.sender), "Not enought balance");
 
-        uint8 command = 1;
-
-        bytes memory data = abi.encode(command, msg.sender, shares);
-        nonceDataWithdraw[mainNonceWithdraw].userAddress = msg.sender;
-        nonceDataWithdraw[mainNonceWithdraw].amount = shares;
+        bytes memory data = abi.encode(uint8(1), msg.sender, shares);
 
         _burn(msg.sender, shares);
 
-        _sendMessage(_destinationChainSelector, nodeAddressReceiver, data);
+        _sendMessage(validNodes[activeNode].chainCCIPid, activeNode, data);
         emit Withdraw(msg.sender, shares, block.timestamp);
     }
 
@@ -282,5 +283,28 @@ contract Master is ERC20, CCIPReceiver {
             evm2AnyMessage
         );
         return fees;
+    }
+
+    function checkApprovedWarp(
+        address _activeNode,
+        address destinationNode
+    ) public view returns (bool) {
+        uint256 now = block.timestamp;
+
+        return
+            validNodes[_activeNode].isActiveNode == true &&
+            validNodes[_activeNode].lastDataFromAave > 0 &&
+            validNodes[destinationNode].lastDataFromAave > 0 &&
+            validNodes[_activeNode].lastDataFromAave + 3600 > now &&
+            validNodes[destinationNode].lastDataFromAave + 3600 > now &&
+            validNodes[destinationNode].isValidNode == true &&
+            validNodes[destinationNode].isActiveNode == false &&
+            validNodes[_activeNode].supplyRate > 0 &&
+            validNodes[_activeNode].supplyRate <
+            validNodes[destinationNode].supplyRate;
+    }
+
+    function testerCheckTimestamp() public view returns (uint256) {
+        return block.timestamp;
     }
 }

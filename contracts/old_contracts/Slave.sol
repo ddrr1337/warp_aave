@@ -9,10 +9,12 @@ import {OwnerIsCreator} from "@chainlink/contracts/src/v0.8/shared/access/OwnerI
 import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../interfaces/ITokenMessenger.sol";
-import "../interfaces/IMessageTransmitter.sol";
-import "../interfaces/IPool.sol";
-import "../interfaces/IPoolDataProvider.sol";
+import "../../interfaces/ITokenMessenger.sol";
+import "../../interfaces/IMessageTransmitter.sol";
+import "../../interfaces/IPool.sol";
+import "../../interfaces/IPoolDataProvider.sol";
+import "../../interfaces/ISwapRouter02.sol";
+import "../../interfaces/IUniswapV3Factory.sol";
 
 contract Slave is CCIPReceiver {
     event Deposit(address indexed from, uint256 amount, uint256 timestamp);
@@ -32,7 +34,8 @@ contract Slave is CCIPReceiver {
         uint256 fees // The fees paid for sending the CCIP message.
     );
 
-    uint64 public constant MASTER_CHAIN = 16015286601757825753; // harcoded sepolia id_cain CCIP
+    uint64 public immutable MASTER_CHAIN; // harcoded sepolia id_cain CCIP
+    uint64 public immutable SLAVE_CHAIN;
     address public immutable MASTER_CONTRACT;
     address public immutable POOL_ADDRESS_PROVIDER_ADDRESS;
     address public immutable POOL_DATA_PROVIDER_ADDRESS;
@@ -47,38 +50,18 @@ contract Slave is CCIPReceiver {
     address public circleTokenMessengerAddress;
     address public circleMessageTansmiterAddress;
 
-    struct WarpIdToDestinationChain {
-        uint32 circleChainId;
-        bytes32 destinationAddress;
-    }
-
-    mapping(bytes32 => WarpIdToDestinationChain)
-        public warpIdToDestinationChain;
-    bytes32[] public warpIds;
-
+    //NODE STATUS
     bool public isNodeActive = false;
-
-    uint256 public aUsdcTokenSupply;
+    bool public areAssetsClaimed = false;
+    bool public isAWRPTotalSupplySetted = false;
 
     ////////////////////TESTER ////////////////////////
 
     uint256 public aWrpTotalSupplySlaveView;
-    uint128 public mainNonceDeposits;
 
-    struct NonceDataDeposits {
-        address userAddress;
-        uint256 shares;
-    }
+    bool public isWarping;
 
-    mapping(uint128 => NonceDataDeposits) public nonceDataDeposits;
-    mapping(address => uint128[]) public userNoncesDeposits;
-
-    mapping(uint128 => address) public userNoncesWithdraw;
-
-    bool public newNonceAndSupply = true;
-
-    bool public testerSuccess;
-    uint256 public testerBalanceUsdc;
+    mapping(address => uint256) public avaliableForRefund;
 
     ////////////////////////// CONSTRUCTOR ///////////////////////////
 
@@ -101,7 +84,9 @@ contract Slave is CCIPReceiver {
         address _circleMessageTansmiterAddress,
         address _POOL_ADDRESS_PROVIDER_ADDRESS,
         address _POOL_DATA_PROVIDER_ADDRESS,
-        address _MASTER_CONTRACT
+        address _MASTER_CONTRACT,
+        uint64 _MASTER_CHAIN,
+        uint64 _SLAVE_CHAIN
     ) CCIPReceiver(_router) {
         s_router = IRouterClient(_router);
         s_linkToken = LinkTokenInterface(_link);
@@ -113,12 +98,8 @@ contract Slave is CCIPReceiver {
         POOL_ADDRESS_PROVIDER_ADDRESS = _POOL_ADDRESS_PROVIDER_ADDRESS;
         MASTER_CONTRACT = _MASTER_CONTRACT;
         POOL_DATA_PROVIDER_ADDRESS = _POOL_DATA_PROVIDER_ADDRESS;
-    }
-
-    function getUserNonces(
-        address userAddress
-    ) public view returns (uint128[] memory) {
-        return userNoncesDeposits[userAddress];
+        MASTER_CHAIN = _MASTER_CHAIN;
+        SLAVE_CHAIN = _SLAVE_CHAIN;
     }
 
     function _internalCommandRouter(
@@ -139,14 +120,7 @@ contract Slave is CCIPReceiver {
             bytes32 newNodeReceiver
         ) = abi.decode(_any2EvmMessage.data, (uint8, uint32, uint64, bytes32));
 
-        uint256 balanceAusdcNode = IERC20(tokenAUSDC).balanceOf(address(this));
-        address pool = _getPool();
-
-        IERC20(tokenAUSDC).approve(pool, balanceAusdcNode);
-
         uint256 usdcwithdrawn = _assetsAllocationWithdraw();
-
-        testerBalanceUsdc = usdcwithdrawn;
 
         IERC20(tokenUSDC).approve(circleTokenMessengerAddress, usdcwithdrawn);
 
@@ -157,38 +131,47 @@ contract Slave is CCIPReceiver {
             tokenUSDC
         );
 
-        _sendSupplyAndNonce(
+        _sendAWRPTotalSupply(
             newNodeChainIdCCIP,
             address(uint160(uint256(newNodeReceiver)))
         );
     }
 
-    function _sendSupplyAndNonce(
+    function _sendAWRPTotalSupply(
         uint64 chainCCIPid,
         address nodeAddressReceiver
     ) internal {
         uint8 command = 2;
-        bytes memory data = abi.encode(
-            command,
-            aWrpTotalSupplySlaveView,
-            mainNonceDeposits
-        );
+        bytes memory data = abi.encode(command, aWrpTotalSupplySlaveView);
 
         _sendMessage(chainCCIPid, nodeAddressReceiver, data);
     }
 
-    function setTotalSupplyAndNonce(
+    function _assetsAllocationWithdraw() internal returns (uint256) {
+        uint256 balanceAusdcNode = IERC20(tokenAUSDC).balanceOf(address(this));
+        address pool = _getPool();
+
+        IERC20(tokenAUSDC).approve(pool, balanceAusdcNode);
+
+        return IPool(pool).withdraw(tokenUSDC, balanceAusdcNode, address(this));
+    }
+
+    function setAWRPTotalSupply(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) public {
         //resume Deposits:
-        isNodeActive = true;
 
-        (, uint256 _aWrpTotalSupplySlaveView, uint128 _mainNonceDeposits) = abi
-            .decode(_any2EvmMessage.data, (uint8, uint256, uint128));
+        (, uint256 _aWrpTotalSupplySlaveView) = abi.decode(
+            _any2EvmMessage.data,
+            (uint8, uint256)
+        );
 
         aWrpTotalSupplySlaveView = _aWrpTotalSupplySlaveView;
-        mainNonceDeposits = _mainNonceDeposits;
-        newNonceAndSupply = true;
+
+        isAWRPTotalSupplySetted = true;
+        if (areAssetsClaimed) {
+            isNodeActive = true;
+        }
     }
 
     function withdraw(Client.Any2EVMMessage memory _any2EvmMessage) public {
@@ -206,8 +189,12 @@ contract Slave is CCIPReceiver {
 
         aWrpTotalSupplySlaveView -= shares;
 
-        IERC20(tokenAUSDC).approve(pool, amount / 10 ** 18);
-        IPool(pool).withdraw(tokenUSDC, amount / 10 ** 18, transferToUser);
+        if (isWarping) {
+            avaliableForRefund[transferToUser] += shares;
+        } else {
+            IERC20(tokenAUSDC).approve(pool, amount / 10 ** 18);
+            IPool(pool).withdraw(tokenUSDC, amount / 10 ** 18, transferToUser);
+        }
     }
 
     //FRONTEND UTIL NO CONTRACT USE
@@ -225,15 +212,6 @@ contract Slave is CCIPReceiver {
     function _ccipReceive(
         Client.Any2EVMMessage memory any2EvmMessage
     ) internal override {
-        /* require(
-            abi.decode(any2EvmMessage.sender, (address)) == MASTER_CONTRACT,
-            "MASTER CONTRACT ONLY"
-        );
-        require(
-            any2EvmMessage.sourceChainSelector == MASTER_CHAIN,
-            "MASTER CHAIN ONLY"
-        ); */
-
         uint8 command = _internalCommandRouter(any2EvmMessage);
 
         if (command == 0) {
@@ -241,7 +219,7 @@ contract Slave is CCIPReceiver {
         } else if (command == 1) {
             withdraw(any2EvmMessage);
         } else if (command == 2) {
-            setTotalSupplyAndNonce(any2EvmMessage);
+            setAWRPTotalSupply(any2EvmMessage);
         } else {
             revert("invalid command from Master");
         }
@@ -327,19 +305,10 @@ contract Slave is CCIPReceiver {
         } else {
             shares = (amount * aWrpTotalSupplySlaveView) / totalAusdcNode;
         }
-        bytes memory data = abi.encode(
-            uint8(0),
-            msg.sender,
-            mainNonceDeposits,
-            shares
-        );
-
-        nonceDataDeposits[mainNonceDeposits].userAddress = msg.sender;
-        nonceDataDeposits[mainNonceDeposits].shares = shares;
-        userNoncesDeposits[msg.sender].push(mainNonceDeposits);
+        bytes memory data = abi.encode(uint8(0), msg.sender, shares);
 
         aWrpTotalSupplySlaveView += shares;
-        mainNonceDeposits += 1;
+
         address pool = _getPool();
         IERC20(tokenUSDC).approve(pool, amount);
         IPool(pool).deposit(tokenUSDC, amount, address(this), 0);
@@ -348,23 +317,20 @@ contract Slave is CCIPReceiver {
         emit Deposit(msg.sender, shares, block.timestamp);
     }
 
-    function sendDepositByNonce(uint128 _nonce) public {
-        require(
-            nonceDataDeposits[_nonce].userAddress == msg.sender,
-            "Address not match with nonce data"
-        );
+    function refundWithdraw() external {
+        uint256 shares = avaliableForRefund[msg.sender];
+        bytes memory data = abi.encode(uint8(0), msg.sender, shares);
 
-        bytes memory data = abi.encode(
-            uint8(0),
-            msg.sender,
-            _nonce,
-            nonceDataDeposits[_nonce].shares
-        );
+        avaliableForRefund[msg.sender] = 0;
 
         _sendMessage(MASTER_CHAIN, MASTER_CONTRACT, data);
     }
 
-    function sendAaveData() public {
+    function sendAaveData(
+        bool isActiveNode,
+        uint64 destinationNodeCCIPid,
+        address destinationNodeAddress
+    ) external {
         (
             ,
             ,
@@ -382,11 +348,29 @@ contract Slave is CCIPReceiver {
                 tokenUSDC
             );
 
+        uint256 linkFeeSendData;
+
+        if (isActiveNode) {
+            bytes memory dataFees = abi.encode(
+                uint8(2),
+                aWrpTotalSupplySlaveView
+            );
+            linkFeeSendData = getLinkFees(
+                destinationNodeCCIPid,
+                destinationNodeAddress,
+                dataFees
+            );
+        } else {
+            linkFeeSendData = 0;
+        }
+
         bytes memory data = abi.encode(
             uint8(1),
             totalUsdcSupply,
             totalUsdcBorrow,
-            supplyRate
+            supplyRate,
+            s_linkToken.balanceOf(address(this)),
+            linkFeeSendData
         );
 
         _sendMessage(MASTER_CHAIN, MASTER_CONTRACT, data);
@@ -403,6 +387,10 @@ contract Slave is CCIPReceiver {
             "failed from circle bridge IMessageTransmitter returned false"
         );
         _assetsAllocationDeposit();
+        areAssetsClaimed = true;
+        if (isAWRPTotalSupplySetted) {
+            isNodeActive = true;
+        }
     }
 
     function _assetsAllocationDeposit() internal {
@@ -413,36 +401,14 @@ contract Slave is CCIPReceiver {
         IPool(pool).deposit(tokenUSDC, blanceUsdcNode, address(this), 0);
     }
 
-    function _assetsAllocationWithdraw() internal returns (uint256) {
-        uint256 balanceAusdcNode = IERC20(tokenAUSDC).balanceOf(address(this));
-        address pool = _getPool();
-
-        IERC20(tokenAUSDC).approve(pool, balanceAusdcNode);
-
-        return IPool(pool).withdraw(tokenUSDC, balanceAusdcNode, address(this));
-    }
-
     function _resumeWithdrawsNodeActive() internal {
         bytes memory data = abi.encode(uint8(2));
 
         _sendMessage(MASTER_CHAIN, MASTER_CONTRACT, data);
     }
 
-    function testingReturnFunds() public {
-        uint256 balance = IERC20(tokenAUSDC).balanceOf(address(this));
-
-        address pool = _getPool();
-
-        IERC20(tokenAUSDC).approve(pool, balance);
-        IPool(pool).withdraw(tokenUSDC, balance, msg.sender);
-    }
-
-    function testingActivateNode() public {
-        isNodeActive = true;
-    }
-
     function getLinkFees(
-        uint64 destinationChainSelector,
+        uint64 destinationCCIPid,
         address receiver,
         bytes memory _data
     ) public view returns (uint256) {
@@ -459,10 +425,22 @@ contract Slave is CCIPReceiver {
         });
 
         // Get the fee required to send the message
-        uint256 fees = s_router.getFee(
-            destinationChainSelector,
-            evm2AnyMessage
-        );
+        uint256 fees = s_router.getFee(destinationCCIPid, evm2AnyMessage);
         return fees;
+    }
+
+    function testingReturnFunds() public {
+        uint256 balance = IERC20(tokenAUSDC).balanceOf(address(this));
+
+        address pool = _getPool();
+
+        IERC20(tokenAUSDC).approve(pool, balance);
+        IPool(pool).withdraw(tokenUSDC, balance, msg.sender);
+    }
+
+    function testingActivateNode() public {
+        isNodeActive = true;
+        areAssetsClaimed = true;
+        isAWRPTotalSupplySetted = true;
     }
 }

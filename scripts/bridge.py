@@ -55,12 +55,25 @@ def allowance(account):
 
 def multiple_deploy():
     deploy_bridge()
+    print(f"Bridge deployed in {network.show_active()}")
+    print("-------------------------------------------")
     network.disconnect()
     network.connect("arbitrum_sepolia")
     deploy_bridge()
+    print(f"Bridge deployed in {network.show_active()}")
+    print("-------------------------------------------")
     network.disconnect()
     network.connect("optimistic_sepolia")
     deploy_bridge()
+    print(f"Bridge deployed in {network.show_active()}")
+    print("-------------------------------------------")
+    network.disconnect()
+    network.connect("base_sepolia")
+    deploy_bridge()
+    print(f"Bridge deployed in {network.show_active()}")
+    print("-------------------------------------------")
+
+    print("------------------ALL DEPLOYS COMPLETED-------------------------------")
 
 
 def collect_fees():
@@ -83,11 +96,11 @@ def claim_assets_from_bridge(account):
 
 def main():
     # deploy_bridge()
-    # multiple_deploy()
+    multiple_deploy()
     # print(get_account(account="main"))
     # get_pool()
     # get_usdc_balance(Bridge[-1].address)
-    collect_fees()
+    # collect_fees()
     # claim_assets_from_bridge(get_account(account="main"))
 
     # allowance(get_account(account="main").address)

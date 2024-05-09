@@ -46,6 +46,8 @@ networks:
     aave_pool_addresses_provider: "0xB25a5D144626a0D488e52AE717A051a2E9997076"
     aave_data_provider: "0x12373B5085e3b42D42C1D4ABF3B3Cf4Df0E0Fa01"
     link_token: "0xb1D4538B4571d411F07960EF2838Ce337FE1E80E"
+    uniswap_V3_factory: "0x248AB79Bbb9bC29bB72f7Cd42F17e054Fc40188e"
+    weth: "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73"
     verify: True
     gas_setup: "2 gwei"
 
@@ -64,6 +66,28 @@ networks:
     aave_pool_addresses_provider: "0x36616cf17557639614c1cdDb356b1B83fc0B2132"
     aave_data_provider: "0x501B4c19dd9C2e06E94dA7b6D5Ed4ddA013EC741"
     link_token: "0xE4aB69C077896252FAFBD49EFD26B5D171A32410"
+    uniswap_V3_factory: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24"
+    weth: "0x4200000000000000000000000000000000000006"
+    verify: True
+    gas_setup: "2 gwei"
+  
+  base_sepolia:
+    BC_identifier: 10344971235874465080
+    host: 'https://base-sepolia.g.alchemy.com/v2/GuercRfMINs0daBJVJrvRsFai-U341pR'
+    circle_message_transmitter: "0xAD09780d193884d503182aD4588450C416D6F9D4"
+    circle_token_messenger: "0x1682Ae6375C4E4A97e4B583BC394c861A46D8962"
+    router_ccip_address: "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93"
+    circle_chain_id: 6
+    explorer: 'https://sepolia.basescan.org/'
+    chainid: 84532
+    usdt_token: ""
+    usdc_circle_token: "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+    ausdc_circle_token: "0xf53B60F4006cab2b3C4688ce41fD5362427A2A66"
+    aave_pool_addresses_provider: "0xd449FeD49d9C443688d6816fE6872F21402e41de"
+    aave_data_provider: "0x80437224dc5Dcb43C5fC87CBdE73152418055274"
+    link_token: "0xE4aB69C077896252FAFBD49EFD26B5D171A32410"
+    uniswap_V3_factory: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24"
+    weth: "0x4200000000000000000000000000000000000006"
     verify: True
     gas_setup: "2 gwei"
 
@@ -97,7 +121,6 @@ networks:
     BC_identifier: 16015286601757825753
     router_ccip_address: "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59"
     eth_dai_price_feed: "0x14866185B1962B63C3Ea9E03Bc1da838bab34C19"
-    weth_token: "0xD0dF82dE051244f04BfF3A8bB1f62E1cD39eED92"
     old_dai_token: "0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357"
     dai_token: "0xe5118E47e061ab15Ca972D045b35193F673bcc36"
     adai_token: "0x67550Df3290415611F6C140c81Cd770Ff1742cb9"
@@ -108,6 +131,8 @@ networks:
     aave_pool_addresses_provider: "0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A"
     dummy_dao_address: "0xdDEAB6bC8cD6a8Ac6a354e45C9bC0dB617c1ac52"
     vrf_provider: "0xab18414CD93297B0d12ac29E63Ca20f515b3DB46"
+    uniswap_V3_factory: "0x0227628f3F023bb0B980b67D528571c95c6DaC1c"
+    weth: "0xfff9976782d46cc05630d1f6ebab18b2324d6b14"
     verify: True
     gas_setup: "2 gwei"
     host: "https://eth-sepolia.g.alchemy.com/v2/aQbA2ZhNVWoRwwM1Rmr29xOOuh6btgqs"

@@ -22,7 +22,7 @@ contract Bridge is Ownable {
             IERC20(usdcAddress).transferFrom(msg.sender, address(this), amount),
             "Failed to transfer usdc"
         );
-        require(amount > 1 * 10 ** 5, "minimum amount, more than 0.1 USDC");
+        require(amount > 1 * 10 ** 6, "minimum amount, more than 1 USDC");
 
         uint256 finalAmount = amount - 1 * 10 ** 6;
 
