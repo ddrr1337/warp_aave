@@ -16,7 +16,6 @@ compiler:
 
 networks:
   binance_testnet:
-    host: 'https://rpc.ankr.com/bsc_testnet_chapel/114eae5782c5d3c86bc96725d315e14c2420aff30b5fcea868e63bb4e56f74a3'
     explorer: 'https://testnet.bscscan.com/api'
     chainid: 97
     usdt_token: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd"
@@ -24,7 +23,6 @@ networks:
     gas_setup: "2 gwei"
 
   arbitrum_goerli:
-    host: 'https://arbitrum-goerli.infura.io/v3/7dc291f13d6c40fc8ce7ddef3a325142'
     explorer: 'https://goerli.arbiscan.io/api/'
     chainid: 421613
     usdt_token: "0x8dA9412AbB78db20d0B496573D9066C474eA21B8"
@@ -33,7 +31,6 @@ networks:
 
   arbitrum_sepolia:
     BC_identifier: 3478487238524512106
-    host: 'https://arbitrum-sepolia.infura.io/v3/7dc291f13d6c40fc8ce7ddef3a325142'
     circle_message_transmitter: "0xaCF1ceeF35caAc005e15888dDb8A3515C41B4872"
     circle_token_messenger: "0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5"
     router_ccip_address: "0x2a9C5afB0d0e4BAb2BCdaE109EC4b0c4Be15a165"
@@ -53,7 +50,6 @@ networks:
 
   optimistic_sepolia:
     BC_identifier: 5224473277236331295
-    host: 'https://opt-sepolia.g.alchemy.com/v2/dzA2e971vCGN7ZPUjy8vw8an7If9tyvc'
     circle_message_transmitter: "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD"
     circle_token_messenger: "0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5"
     router_ccip_address: "0x114A20A10b43D4115e5aeef7345a1A71d2a60C57"
@@ -73,7 +69,6 @@ networks:
   
   base_sepolia:
     BC_identifier: 10344971235874465080
-    host: 'https://base-sepolia.g.alchemy.com/v2/GuercRfMINs0daBJVJrvRsFai-U341pR'
     circle_message_transmitter: "0xAD09780d193884d503182aD4588450C416D6F9D4"
     circle_token_messenger: "0x1682Ae6375C4E4A97e4B583BC394c861A46D8962"
     router_ccip_address: "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93"
@@ -99,10 +94,10 @@ networks:
     verify: True
     circle_chain_id: 7
     gas_setup: "2 gwei"
-    host: "https://polygon-mumbai.g.alchemy.com/v2/GURODYfhwglWIw1WKQnfZcLDiqpaFtY3"
+
 
   avax-test:
-    host: "https://api.avax-test.network/ext/bc/C/rpc"
+
     circle_token_messenger: "0xeb08f243e5d3fcff26a9e38ae5520a669f4019d0"
     circle_message_transmitter: "0xa9fb1b3009dcb79e2fe346c16a604b8fa8ae0a79"
     circle_chain_id: 1
@@ -135,7 +130,7 @@ networks:
     weth: "0xfff9976782d46cc05630d1f6ebab18b2324d6b14"
     verify: True
     gas_setup: "2 gwei"
-    host: "https://eth-sepolia.g.alchemy.com/v2/aQbA2ZhNVWoRwwM1Rmr29xOOuh6btgqs"
+ 
 
   mainnet-fork-dev:
     eth_dai_price_feed: "0x773616E4d11A78F511299002da57A0a94577F1f4"
