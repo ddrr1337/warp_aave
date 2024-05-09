@@ -154,12 +154,13 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         // Get the fee required to send the CCIP message
         uint256 fees = router.getFee(_destinationChainSelector, evm2AnyMessage);
 
-        if (fees > s_linkToken.balanceOf(address(this)))
-            revert NotEnoughBalance(s_linkToken.balanceOf(address(this)), fees);
         require(
             s_linkToken.transferFrom(msg.sender, address(this), fees),
             "Not provided Link for fees"
         );
+
+        if (fees > s_linkToken.balanceOf(address(this)))
+            revert NotEnoughBalance(s_linkToken.balanceOf(address(this)), fees);
 
         // approve the Router to transfer LINK tokens on contract's behalf. It will spend the fees in LINK
         s_linkToken.approve(address(router), fees);

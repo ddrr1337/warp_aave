@@ -9,9 +9,9 @@ from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 from eth_abi import encode
 
 
-MASTER_CONTRACT_SEPOLIA = "0x18e40E5D9B418aBaEd749b6432c057553F2b50eB"
-ARBITRUM_NODE = "0x5c0fa87d723C84b1EAf888C2B2D9f6efc71889C4"
-OPTIMISTIC_NODE = "0xe0f8d5298a09BC6aDf2fb84d18D3D351De0bC90a"
+MASTER_CONTRACT_SEPOLIA = "0xd483d97e4b64dC35a5284A46a2f4cf12164da701"
+ARBITRUM_NODE = "0x304eb906d3f00289aE56AE98583b27092FDEa47E"
+OPTIMISTIC_NODE = "0x644B086aC3CE64E4E391F3182CbB53eE4404eFE2"
 BASE_NODE = ""
 
 
@@ -310,7 +310,10 @@ def check_var():
     print(var1)
 
 
-def withdraw(shares, account):
+def withdraw(activeCCIPid, activeNodeAddress, shares, account):
+    link_fees = get_link_fee_warpAssets(activeCCIPid, activeNodeAddress)
+    approve_link_to_master(link_fees * 1.2, account)
+
     contract = MasterNode[-1]
     withdraw_assets = contract.withdraw(
         shares, {"from": account, "gas_price": get_gas_price() * 1.5}
@@ -333,8 +336,13 @@ def main():
         False,
     ) """  # call on sepolia
 
-    # deposit_node(1 * 10**6, get_account(account="main"))  # call on arbitrum
-    # withdraw(0.5 * 10**18, get_account(account="main"))
+    deposit_node(1 * 10**6, get_account(account="main"))  # call on arbitrum
+    """ withdraw(
+        config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
+        ARBITRUM_NODE,
+        0.5 * 10**18,
+        get_account(account="main"),
+    ) """
 
     """ warp_assets(
         config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
@@ -360,7 +368,7 @@ def main():
     # test_usdc_allowance()
     # balance_usdc(Node[-1])
     # balance_ausdc(Node[-1])
-    balance_link(MasterNode[-1])
+    # balance_link(MasterNode[-1])
     # get_pool_uni()
     # get_uni_price()
     # weth_tester_deposit(0.01 * 10**18, get_account(account="main"))
