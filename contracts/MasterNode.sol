@@ -27,18 +27,10 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
     error SenderNotAllowed(address sender); // Used when the sender has not been allowlisted by the contract owner.
     error InvalidReceiverAddress(); // Used when the receiver address is 0.
 
-    // Mapping to keep track of allowlisted destination chains.
-    mapping(uint64 => bool) public allowlistedDestinationChains;
-
-    // Mapping to keep track of allowlisted source chains.
-    mapping(uint64 => bool) public allowlistedSourceChains;
-
-    // Mapping to keep track of allowlisted senders.
-    mapping(address => bool) public allowlistedSenders;
-
     LinkTokenInterface private s_linkToken;
 
     /// TESTER ////
+    uint64 public immutable MASTER_CONTRACT_CHAIN_ID;
 
     struct ValidNodes {
         bool isValidNode;
@@ -59,9 +51,11 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
     /// @param _link The address of the link contract.
     constructor(
         address _router,
-        address _link
+        address _link,
+        uint64 _MASTER_CONTRACT_CHAIN_ID
     ) CCIPReceiver(_router) ERC20("WarpYield", "aWRP") {
         s_linkToken = LinkTokenInterface(_link);
+        MASTER_CONTRACT_CHAIN_ID = _MASTER_CONTRACT_CHAIN_ID;
     }
 
     modifier onlyAllowedNodes(address nodeAddress) {
@@ -93,6 +87,11 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         return command;
     }
 
+    /////////////////////////////////////////////////////////////////////////
+    ////////////////////  INCOMING DEPOSIT => MINT AWRP  ///////////////////
+    ////////////////////////  COMMAND == 0  ///////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
     function aWarpTokenMinter(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) public {
@@ -104,6 +103,11 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         _mint(userAddress, shares);
     }
 
+    /////////////////////////////////////////////////////////////////////////
+    //////////////////////  RESUME PROTOCOL OPEATIONS  /////////////////////
+    ////////////////////////  COMMAND == 1  ///////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
     function _resmumeOperations(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) internal {
@@ -112,7 +116,44 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         activeNode = abi.decode(_any2EvmMessage.sender, (address));
     }
 
-    /// handle a received message
+    /////////////////////////////////////////////////////////////////////////
+    /////////////////////////  DATA AAVE FROM NODE  ////////////////////////
+    ////////////////////////  COMMAND == 2  ///////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
+    function _nodeAaveFeed(
+        Client.Any2EVMMessage memory _any2EvmMessage
+    ) internal {
+        require(
+            validNodes[abi.decode(_any2EvmMessage.sender, (address))]
+                .isValidNode,
+            "Node is not valid"
+        );
+
+        (
+            ,
+            uint256 totalUsdcSupply,
+            uint256 totalUsdcBorrow,
+            uint256 supplyRate
+        ) = abi.decode(
+                _any2EvmMessage.data,
+                (uint8, uint256, uint256, uint256)
+            );
+
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .lastDataFromAave = block.timestamp;
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .totalUsdcSupply = totalUsdcSupply;
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .totalUsdcBorrow = totalUsdcBorrow;
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .supplyRate = supplyRate;
+    }
+
+    /////////////////////////////////////////////////////////////////////////
+    ///////////////////////  INCOMING MESAGES HANDLER  /////////////////////
+    ///////////////////////////////////////////////////////////////////////
+
     function _ccipReceive(
         Client.Any2EVMMessage memory any2EvmMessage
     ) internal override {
@@ -126,13 +167,15 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
             aWarpTokenMinter(any2EvmMessage);
         } else if (command == 1) {
             _resmumeOperations(any2EvmMessage);
+        } else if (command == 2) {
+            _nodeAaveFeed(any2EvmMessage);
         } else {
             revert("invalid command from Node");
         }
     }
 
     /////////////////////////////////////////////////////////////////////////
-    /////////////////////////OUTGOING MESAGES HANDLER///////////////////////
+    ///////////////////////  OUTGOING MESAGES HANDLER  /////////////////////
     ///////////////////////////////////////////////////////////////////////
 
     function _sendMessage(
@@ -203,7 +246,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
     receive() external payable {}
 
     /////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////WARP ASSETS////////////////////////////
+    ///////////////////////////////  WARP ASSETS  //////////////////////////
     ///////////////////////////////////////////////////////////////////////
 
     function warpAssets(
@@ -223,7 +266,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
     }
 
     /////////////////////////////////////////////////////////////////////////
-    ///////////////////////////////WITHDRAW/////////////////////////////////
+    /////////////////////////////  WITHDRAW  ///////////////////////////////
     ///////////////////////////////////////////////////////////////////////
 
     function withdraw(uint256 shares) external {
@@ -243,6 +286,27 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
     /////////////////////////////////////////////////////////////////////////
     /////////////////////////////   UTILS   ////////////////////////////////
     ///////////////////////////////////////////////////////////////////////
+
+    function checkApprovedWarp(
+        address _activeNode,
+        address destinationNode
+    ) public view returns (bool) {
+        uint256 now = block.timestamp;
+
+        return
+            validNodes[_activeNode].isActiveNode == true &&
+            validNodes[_activeNode].lastDataFromAave > 0 &&
+            validNodes[destinationNode].lastDataFromAave > 0 &&
+            validNodes[_activeNode].lastDataFromAave + 3600 > now &&
+            validNodes[destinationNode].lastDataFromAave + 3600 > now &&
+            validNodes[destinationNode].isValidNode == true &&
+            validNodes[destinationNode].isActiveNode == false &&
+            validNodes[_activeNode].supplyRate > 0 &&
+            validNodes[_activeNode].supplyRate <
+            validNodes[destinationNode].supplyRate;
+    }
+
+
 
     function getLinkFees(
         uint64 destinationChainSelector,

@@ -7,11 +7,12 @@ from brownie import (
 )
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 from eth_abi import encode
+from datetime import datetime
 
 
-MASTER_CONTRACT_SEPOLIA = "0xd483d97e4b64dC35a5284A46a2f4cf12164da701"
-ARBITRUM_NODE = "0x304eb906d3f00289aE56AE98583b27092FDEa47E"
-OPTIMISTIC_NODE = "0x644B086aC3CE64E4E391F3182CbB53eE4404eFE2"
+MASTER_CONTRACT_SEPOLIA = "0x6ecAE6A11a1e7C3952acB15e6DbAF120Ed4c53B5"
+ARBITRUM_NODE = "0x6d0631BeB09780C2083478aEc40af487e3DB5432"
+OPTIMISTIC_NODE = "0xf2c832B20abDF2fFe1bc1787a2f0f00265D2Ac60"
 BASE_NODE = ""
 
 
@@ -19,6 +20,7 @@ def deploy_master():
     deploy = MasterNode.deploy(
         config["networks"][network.show_active()].get("router_ccip_address"),
         config["networks"][network.show_active()].get("link_token"),
+        config["networks"][network.show_active()].get("BC_identifier"),
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
     link_contract = interface.IERC20(
@@ -73,7 +75,7 @@ def warp_assets(
     activeCCIPid, activeNodeAddress, destinationCCIPid, destinationNodeAddress, account
 ):
     link_fees = get_link_fee_warpAssets(activeCCIPid, activeNodeAddress)
-    approve_link_to_master(link_fees * 1.2, account)
+    approve_link_to_master(10 * 10**18, account)
 
     contract = MasterNode[-1]
     warp_assets = contract.warpAssets(
@@ -265,6 +267,16 @@ def deposit_node(amount, account):
     )
 
 
+def withdraw(activeCCIPid, activeNodeAddress, shares, account):
+    link_fees = get_link_fee_warpAssets(activeCCIPid, activeNodeAddress)
+    approve_link_to_master(10 * 10**18, account)
+
+    contract = MasterNode[-1]
+    withdraw_assets = contract.withdraw(
+        shares, {"from": account, "gas_price": get_gas_price() * 1.5}
+    )
+
+
 def aWrp_total_supply_node():
     contract = Node[-1]
     total_supply = contract.aWrpTotalSupplyNodeSide()
@@ -275,6 +287,12 @@ def aWrp_total_supply_master():
     contract = MasterNode[-1]
     total_supply = contract.totalSupply()
     print("Balance aWRP Master", total_supply, total_supply / 10**18)
+
+
+def aWRP_balance(account):
+    contract = MasterNode[-1]
+    balance = contract.balanceOf(account)
+    print("Balance of aWRP:", balance, balance / 10**18)
 
 
 def test_usdc_allowance():
@@ -301,23 +319,46 @@ def get_node_data(nodeAddress):
     print("Is Node Valid: ", node_data[0])
     print("Is Node Active: ", node_data[1])
     print("Node ChainCCIPid: ", node_data[2])
+    print(
+        "Node TimeData: ",
+        node_data[3],
+        "Is Valid, ontime: ",
+        (node_data[3] + 3600) > datetime.now().timestamp(),
+    )
+    print("Node toal usdc supply: ", node_data[4])
+    print("Node total usdc borrow: ", node_data[5])
+    print("Node supply ratio: ", node_data[6])
 
 
 def check_var():
-    contract = MasterNode[-1]
-    var1 = contract.activeNode()
+    contract = Node[-1]
+    var1 = contract.testerFeeTracker()
 
-    print(var1)
+    print(var1, var1 / 10**18)
 
 
-def withdraw(activeCCIPid, activeNodeAddress, shares, account):
-    link_fees = get_link_fee_warpAssets(activeCCIPid, activeNodeAddress)
-    approve_link_to_master(link_fees * 1.2, account)
-
-    contract = MasterNode[-1]
-    withdraw_assets = contract.withdraw(
-        shares, {"from": account, "gas_price": get_gas_price() * 1.5}
+def send_node_data_to_master(account):
+    approve_link_to_node(10 * 10**18, account)
+    contract = Node[-1]
+    send_data = contract.sendAaveData(
+        {"from": account, "gas_price": get_gas_price() * 1.5}
     )
+
+
+def check_ready_for_warp(activeNodeAddress, destinationNodeAddress):
+    contract = MasterNode[-1]
+    is_ready = contract.checkApprovedWarp(activeNodeAddress, destinationNodeAddress)
+
+    print(is_ready)
+
+
+def get_nodes_data():
+    get_node_data(ARBITRUM_NODE)
+    print()
+    print("----------------------ARBITRUM---------------------------")
+    get_node_data(OPTIMISTIC_NODE)
+    print()
+    print("----------------------OPTIMISTIC---------------------------")
 
 
 def main():
@@ -336,7 +377,7 @@ def main():
         False,
     ) """  # call on sepolia
 
-    deposit_node(1 * 10**6, get_account(account="main"))  # call on arbitrum
+    # deposit_node(1 * 10**6, get_account(account="main"))  # call on arbitrum
     """ withdraw(
         config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
         ARBITRUM_NODE,
@@ -352,32 +393,41 @@ def main():
         get_account(account="main"),
     ) """  # call on sepolia
     """ warp_assets(
+        config["networks"]["optimistic_sepolia"].get("BC_identifier"),
+        OPTIMISTIC_NODE,
         config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
         ARBITRUM_NODE,
-        get_account(account='main')
-    ) """  # call on sepolia
+        get_account(account="main"),
+    ) """
+
     """ warp_assets_arbitrum(
         config["networks"]["optimistic_sepolia"].get("BC_identifier"),
         OPTIMISTIC_NODE,
     ) """
-    # get_node_data(ARBITRUM_NODE)
-    # get_node_data(OPTIMISTIC_NODE)
-    # check_var()
+
+    # send_node_data_to_master(get_account(account="main"))  # call on nodes
+    # get_nodes_data()  # call on sepolia
+    # check_ready_for_warp(ARBITRUM_NODE, OPTIMISTIC_NODE)
+    check_var()
     # aWrp_total_supply_node()  # call on Nodes
-    # aWrp_total_supply_master()  # call on Master
+    # aWrp_total_supply_master()  # call on sepolia
+    # aWRP_balance(get_account(account="main"))  # call on Sepolia
     # test_usdc_allowance()
     # balance_usdc(Node[-1])
     # balance_ausdc(Node[-1])
     # balance_link(MasterNode[-1])
-    # get_pool_uni()
-    # get_uni_price()
+
     # weth_tester_deposit(0.01 * 10**18, get_account(account="main"))
     # transfer_weth(0.01 * 10**18, ARBITRUM_NODE, get_account(account="main"))
     # weth_tester_withdraw(get_account(account="main"))
     # weth_balance(Node[-1])
     # tester_transfer_eth(0.01 * 10**18)
     # get_link_fee(Node[-1], config["networks"]["sepolia"].get("BC_identifier"))
-    # print(get_gas_price())
+
+    ################# UNISWAP V3 ###########################
+    # get_pool_uni()
+    # get_uni_price()
+
     print()
     print()
     print("------------------------END SCRIPT-------------------------------")

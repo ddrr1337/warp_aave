@@ -8,10 +8,11 @@ import {CCIPReceiver} from "@chainlink/contracts/src/v0.8/ccip/applications/CCIP
 import {IERC20} from "@chainlink/contracts/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@chainlink/contracts/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../interfaces/IUniswapV3Factory.sol";
+import "../interfaces/ISwapRouter02.sol";
 import "../interfaces/IWETH9.sol";
 import "../interfaces/IPool.sol";
 import "../interfaces/IPoolAddressesProvider.sol";
+import "../../interfaces/IPoolDataProvider.sol";
 
 import "./utils_node/UtilsNode.sol";
 
@@ -54,9 +55,15 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     address public immutable aUSDC_ADDRESS;
     address public immutable WETH_ADDRESS;
 
+    ISwapRouter02 iSwapRouter02;
+
     uint256 public aWrpTotalSupplyNodeSide;
 
+    ///////////// TEMPORAL TESTER /////////////////
     uint public testerFeeTracker;
+    uint public testerAmountInFees;
+    //////////////////////////////////////////////
+
     bool public isWarping;
     mapping(address => uint256) public avaliableForRefund;
 
@@ -72,7 +79,8 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         uint64 _MASTER_CONTRACT_CHAIN_ID,
         address _MASTER_CONTRACT_ADDRESS,
         address _POOL_ADDRESS_PROVIDER_ADDRESS,
-        address _POOL_DATA_PROVIDER_ADDRESS
+        address _POOL_DATA_PROVIDER_ADDRESS,
+        address _UNISWAP_V3_ROUTER_02_ADDRESS
     ) CCIPReceiver(_router) {
         s_linkToken = IERC20(_link);
         USDC_ADDRESS = _USDC_ADDRESS;
@@ -82,12 +90,52 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         MASTER_CONTRACT_ADDRESS = _MASTER_CONTRACT_ADDRESS;
         POOL_ADDRESS_PROVIDER_ADDRESS = _POOL_ADDRESS_PROVIDER_ADDRESS;
         POOL_DATA_PROVIDER_ADDRESS = _POOL_DATA_PROVIDER_ADDRESS;
+        iSwapRouter02 = ISwapRouter02(_UNISWAP_V3_ROUTER_02_ADDRESS);
 
         allowlistedDestinationChains[_MASTER_CONTRACT_CHAIN_ID] = true;
     }
 
     /////////////////////////////////////////////////////////////////////////
-    ////////////////////////////RECEIVING MESSAGE///////////////////////////
+    /////////////////////////////////////////////////////////////////////////
+    //////////////////////////  RECEIVING MESSAGES  ////////////////////////
+    ///////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
+    /////////////////////////////////////////////////////////////////////////
+    //////////////////////////  HANDLE WITHDRAW  ///////////////////////////
+    ///////////////////////////  COMMAND = 0  //////////////////////////////
+    ///////////////////////////////////////////////////////////////////////
+
+    function _withdraw(Client.Any2EVMMessage memory _any2EvmMessage) internal {
+        (, address transferToUser, uint256 shares) = abi.decode(
+            _any2EvmMessage.data,
+            (uint8, address, uint256)
+        );
+
+        address pool = _getPool(POOL_ADDRESS_PROVIDER_ADDRESS);
+        uint256 totalAusdc = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
+
+        /// TESTING ///
+        uint256 amount = ((shares * 10 ** 18) * totalAusdc) /
+            aWrpTotalSupplyNodeSide;
+
+        aWrpTotalSupplyNodeSide -= shares;
+
+        if (isWarping) {
+            avaliableForRefund[transferToUser] += shares;
+        } else {
+            IERC20(aUSDC_ADDRESS).approve(pool, amount / 10 ** 18);
+            IPool(pool).withdraw(
+                USDC_ADDRESS,
+                amount / 10 ** 18,
+                transferToUser
+            );
+        }
+    }
+
+    /////////////////////////////////////////////////////////////////////////
+    ////////////////////////  HANDLE WARP ASSETS  //////////////////////////
+    ///////////////////////////  COMMAND = 1  //////////////////////////////
     ///////////////////////////////////////////////////////////////////////
 
     function _warpAssets(
@@ -120,33 +168,6 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         );
     }
 
-    function _withdraw(Client.Any2EVMMessage memory _any2EvmMessage) internal {
-        (, address transferToUser, uint256 shares) = abi.decode(
-            _any2EvmMessage.data,
-            (uint8, address, uint256)
-        );
-
-        address pool = _getPool(POOL_ADDRESS_PROVIDER_ADDRESS);
-        uint256 totalAusdc = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
-
-        /// TESTING ///
-        uint256 amount = ((shares * 10 ** 18) * totalAusdc) /
-            aWrpTotalSupplyNodeSide;
-
-        aWrpTotalSupplyNodeSide -= shares;
-
-        if (isWarping) {
-            avaliableForRefund[transferToUser] += shares;
-        } else {
-            IERC20(aUSDC_ADDRESS).approve(pool, amount / 10 ** 18);
-            IPool(pool).withdraw(
-                USDC_ADDRESS,
-                amount / 10 ** 18,
-                transferToUser
-            );
-        }
-    }
-
     /////////////// ONLY FOR TESTING ////////////////////////
     function warpAssets(
         uint64 _destinationChainSelector,
@@ -175,6 +196,11 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         );
     }
 
+    /////////////////////////////////////////////////////////////////////////
+    /////////////////////  HANDLE RESUME OPERATIONS  ///////////////////////
+    ///////////////////////////  COMMAND = 2  //////////////////////////////
+    ///////////////////////////////////////////////////////////////////////
+
     function _allocateAssetsAndSetAWRPSupply(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) internal {
@@ -200,9 +226,10 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             true
         );
     }
-
     /////////////////////////////////////////////////////////////////////////
-    //////////////////////////INCOMING MESAGE HANDLER///////////////////////
+    /////////////////////////////////////////////////////////////////////////
+    ////////////////////////  INCOMING MESAGE HANDLER  /////////////////////
+    ///////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////
 
     function _ccipReceive(
@@ -220,10 +247,11 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             revert("invalid command from Node");
         }
     }
-
     /////////////////////////////////////////////////////////////////////////
-    /////////////////////////OUTGOING MESAGES HANDLER///////////////////////
+    /////////////////////////////////////////////////////////////////////////
+    ///////////////////////  OUTGOING MESAGES HANDLER  /////////////////////
     ///////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     /// ADD MODIFIERS!! ///
 
@@ -253,13 +281,31 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         );
 
         // Initialize a router client instance to interact with cross-chain router
-        IRouterClient router = IRouterClient(this.getRouter());
+        IRouterClient routerCCIP = IRouterClient(this.getRouter());
 
         // Get the fee required to send the CCIP message
-        uint256 fees = router.getFee(_destinationChainSelector, evm2AnyMessage);
+        uint256 fees = routerCCIP.getFee(
+            _destinationChainSelector,
+            evm2AnyMessage
+        );
 
         //////////// TESTING /////////////////
         testerFeeTracker = fees;
+
+        if (isPayingNative) {
+            IERC20(USDC_ADDRESS).approve(address(iSwapRouter02), _amount);
+            ISwapRouter02.ExactOutputSingleParams
+                memory params = _getExactOutputSingleParams(
+                    USDC_ADDRESS,
+                    WETH_ADDRESS,
+                    3000,
+                    address(this),
+                    fees,
+                    _amount
+                );
+            uint256 amountIn = iSwapRouter02.exactOutputSingle(params);
+            testerAmountInFees = amountIn;
+        }
 
         if (isPayingNative) {
             IWETH9(WETH_ADDRESS).withdraw(fees);
@@ -276,22 +322,22 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
                     s_linkToken.balanceOf(address(this)),
                     fees
                 );
-            s_linkToken.approve(address(router), fees);
+            s_linkToken.approve(address(routerCCIP), fees);
         }
 
         // approve the Router to spend tokens on contract's behalf. It will spend the amount of the given token
         if (_token != address(0)) {
-            IERC20(_token).approve(address(router), _amount);
+            IERC20(_token).approve(address(routerCCIP), _amount);
         }
 
         // Send the message through the router and store the returned message ID
         if (isPayingNative) {
-            messageId = router.ccipSend{value: fees}(
+            messageId = routerCCIP.ccipSend{value: fees}(
                 _destinationChainSelector,
                 evm2AnyMessage
             );
         } else {
-            messageId = router.ccipSend(
+            messageId = routerCCIP.ccipSend(
                 _destinationChainSelector,
                 evm2AnyMessage
             );
@@ -344,7 +390,13 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     }
 
     /////////////////////////////////////////////////////////////////////////
-    //////////////////////////////SENDING MESSAGES//////////////////////////
+    /////////////////////////////////////////////////////////////////////////
+    //////////////////////////  SENDING MESSAGES  //////////////////////////
+    ///////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
+    /////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////   DEPOSIT   ////////////////////////////
     ///////////////////////////////////////////////////////////////////////
 
     function deposit(uint256 amount) external {
@@ -389,13 +441,73 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     }
 
     /////////////////////////////////////////////////////////////////////////
-    /////////////////////////////   UTILS   ////////////////////////////////
+    /////////////////////   SEND DATA NODE TO MASTER   /////////////////////
     ///////////////////////////////////////////////////////////////////////
+
+    function sendAaveData() external {
+        (
+            ,
+            ,
+            uint256 totalUsdcSupply,
+            ,
+            uint256 totalUsdcBorrow,
+            uint256 supplyRate,
+            ,
+            ,
+            ,
+            ,
+            ,
+
+        ) = IPoolDataProvider(POOL_DATA_PROVIDER_ADDRESS).getReserveData(
+                USDC_ADDRESS
+            );
+
+        uint8 commandSendAaveData = 2;
+        bytes memory data = abi.encode(
+            commandSendAaveData,
+            totalUsdcSupply,
+            totalUsdcBorrow,
+            supplyRate
+        );
+
+        _sendMessage(
+            MASTER_CONTRACT_CHAIN_ID,
+            MASTER_CONTRACT_ADDRESS,
+            data,
+            address(0),
+            0,
+            false
+        );
+    }
 
     /// @notice Fallback function to allow the contract to receive Ether.
     /// @dev This function has no function body, making it a default function for receiving Ether.
     /// It is automatically called when Ether is sent to the contract without any data.
     receive() external payable {}
+
+    /////////////////////////////////////////////////////////////////////////
+    /////////////////////////////   UTILS   ////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////
+
+    function _getExactOutputSingleParams(
+        address _tokenIn,
+        address _tokenOut,
+        uint24 _fee,
+        address _recipient,
+        uint256 _amountOut,
+        uint256 _amountInMaximum
+    ) internal pure returns (ISwapRouter02.ExactOutputSingleParams memory) {
+        return
+            ISwapRouter02.ExactOutputSingleParams({
+                tokenIn: _tokenIn,
+                tokenOut: _tokenOut,
+                fee: _fee,
+                recipient: _recipient,
+                amountOut: _amountOut,
+                amountInMaximum: _amountInMaximum,
+                sqrtPriceLimitX96: 0
+            });
+    }
 
     // FACTORIZE THIS!!
     function getLinkFees(
@@ -419,6 +531,14 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         IRouterClient router = IRouterClient(this.getRouter());
         uint256 fees = router.getFee(destinationCCIPid, evm2AnyMessage);
         return fees;
+    }
+
+    function testerTansformAusdc() external onlyOwner {
+        _assetsAllocationWithdraw(
+            POOL_ADDRESS_PROVIDER_ADDRESS,
+            aUSDC_ADDRESS,
+            USDC_ADDRESS
+        );
     }
 
     function testerRecoverFunds() external onlyOwner {

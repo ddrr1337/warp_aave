@@ -56,7 +56,7 @@ def approve_erc20(spender, amount, erc20_address, account):
     )
     tx.wait(1)
     allowance = erc20.allowance(account, spender)
-    print(f"DAI address: {erc20.address}")
+    print(f"ERC20 address: {erc20.address}")
     print(f"Contract spender: {spender}")
 
     print(
