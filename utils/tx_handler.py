@@ -10,7 +10,7 @@ class TxHandler:
         self.tx_hash = tx_hash
         self.cirle_api_endpoint = "https://iris-api-sandbox.circle.com/v1/attestations/"
         if provider_url:
-            self.web3 = Web3(Web3.HTTPProvider(provider_url))
+            self.web3 = Web3(Web3.WebsocketProvider(provider_url))
 
     def get_transaction_receipt(self):
         """

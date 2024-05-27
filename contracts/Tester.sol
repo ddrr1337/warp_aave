@@ -1,61 +1,37 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.19;
 
-import "../interfaces/IERC20.sol";
-import "../interfaces/IPoolAddressesProvider.sol";
-import "../interfaces/IPool.sol";
-import "../interfaces/IMessageTransmitter.sol";
-import "../interfaces/ITokenMessenger.sol";
+import {IERC20} from "@chainlink/contracts/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import "../interfaces/uniswap_V3/swap/ISwapRouter02.sol";
 
 contract Tester {
-    address public usdcAddress;
-    uint256 public testerBalance;
-    address public poolAddressesProvider; //arbirtum_side
+    address constant USDC_ADDRESS = 0x5fd84259d66Cd46123540766Be93DFE6D43130D7;
+    address constant WETH_ADDRESS = 0x4200000000000000000000000000000000000006;
+    ISwapRouter02 public iSwapRouter02;
 
-    constructor(address _usdcAddress, address _poolAddressesProvider) {
-        usdcAddress = _usdcAddress;
-        poolAddressesProvider = _poolAddressesProvider;
+    constructor(address router) {
+        iSwapRouter02 = ISwapRouter02(router);
     }
 
-    function _getPool() internal view returns (address) {
-        address pool = IPoolAddressesProvider(poolAddressesProvider).getPool();
+    function swap() external {
+        // Approve the router to spend USDC.
+        uint256 usdcBalance = IERC20(USDC_ADDRESS).balanceOf(address(this));
+        IERC20(USDC_ADDRESS).approve(address(iSwapRouter02), usdcBalance);
 
-        return pool;
-    }
+        // Set up the parameters for the swap.
+        ISwapRouter02.ExactOutputSingleParams memory params = ISwapRouter02
+            .ExactOutputSingleParams({
+                tokenIn: USDC_ADDRESS,
+                tokenOut: WETH_ADDRESS,
+                fee: 500,
+                recipient: address(this),
+                amountOut: 100000000000000,
+                amountInMaximum: usdcBalance, // for testing dont mind slipperage
+                sqrtPriceLimitX96: 0
+            });
 
-    function sendAssetsToBridge(
-        uint256 amount,
-        bytes32 destinationAddress
-    ) public {
-        require(
-            IERC20(usdcAddress).transferFrom(msg.sender, address(this), amount),
-            "Failed to transfer usdc"
-        );
-        IERC20(usdcAddress).approve(
-            0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5,
-            amount
-        );
-        ITokenMessenger(0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5)
-            .depositForBurn(amount, uint32(3), destinationAddress, usdcAddress);
-    }
-
-    function claimAssetsFromBridge(
-        bytes calldata message,
-        bytes calldata attestation
-    ) public {
-        require(
-            IMessageTransmitter(0xaCF1ceeF35caAc005e15888dDb8A3515C41B4872)
-                .receiveMessage(message, attestation),
-            "failed from circle returning false"
-        );
-        _assetsAllocation();
-    }
-
-    function _assetsAllocation() internal {
-        uint256 blanceUsdcNode = IERC20(usdcAddress).balanceOf(address(this));
-        address pool = _getPool();
-
-        IERC20(usdcAddress).approve(pool, blanceUsdcNode);
-        IPool(pool).deposit(usdcAddress, blanceUsdcNode, address(this), 0);
+        // Execute the swap.
+        iSwapRouter02.exactOutputSingle(params);
+        // withdraw WETH to ETH native
     }
 }

@@ -7,22 +7,18 @@ import {Client} from "@chainlink/contracts/src/v0.8/ccip/libraries/Client.sol";
 import {CCIPReceiver} from "@chainlink/contracts/src/v0.8/ccip/applications/CCIPReceiver.sol";
 import {IERC20} from "@chainlink/contracts/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@chainlink/contracts/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
-
-import "../interfaces/ISwapRouter02.sol";
-import "../interfaces/IWETH9.sol";
-import "../interfaces/IPool.sol";
-import "../interfaces/IPoolAddressesProvider.sol";
-import "../../interfaces/IPoolDataProvider.sol";
-
 import "./utils_node/UtilsNode.sol";
+import "../interfaces/IWETH9.sol";
 
-/**
- * THIS IS AN EXAMPLE CONTRACT THAT USES HARDCODED VALUES FOR CLARITY.
- * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
- * DO NOT USE THIS CODE IN PRODUCTION.
- */
+//uniswap V3
+import "../interfaces/uniswap_V3/swap/ISwapRouter02.sol";
 
-/// @title - A simple messenger contract for transferring/receiving tokens and data across chains.
+//AAVE interfaces
+import "../interfaces/IPool.sol";
+import "../interfaces/IPoolDataProvider.sol";
+//master contract interface
+import "../interfaces/IMasterNode.sol";
+
 contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     using SafeERC20 for IERC20;
 
@@ -33,39 +29,39 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     error DestinationChainNotAllowed(uint64 destinationChainSelector); // Used when the destination chain has not been allowlisted by the contract owner.
     error SourceChainNotAllowed(uint64 sourceChainSelector); // Used when the source chain has not been allowlisted by the contract owner.
     error SenderNotAllowed(address sender); // Used when the sender has not been allowlisted by the contract owner.
-    error InvalidReceiverAddress(); // Used when the receiver address is 0.
 
-    // Mapping to keep track of allowlisted destination chains.
-    mapping(uint64 => bool) public allowlistedDestinationChains;
+    bool public isNodeActive;
 
-    // Mapping to keep track of allowlisted source chains.
-    mapping(uint64 => bool) public allowlistedSourceChains;
-
-    // Mapping to keep track of allowlisted senders.
-    mapping(address => bool) public allowlistedSenders;
-
-    IERC20 private s_linkToken;
+    address[] public allowedNodes;
 
     /// TESTER ////
     uint64 public immutable MASTER_CONTRACT_CHAIN_ID;
     address public immutable MASTER_CONTRACT_ADDRESS;
+    uint64 public immutable NODE_CONTRACT_CHAIN_ID;
     address public immutable POOL_ADDRESS_PROVIDER_ADDRESS;
     address public immutable POOL_DATA_PROVIDER_ADDRESS;
     address public immutable USDC_ADDRESS;
     address public immutable aUSDC_ADDRESS;
     address public immutable WETH_ADDRESS;
 
-    ISwapRouter02 iSwapRouter02;
+    IERC20 private s_linkToken;
+    ISwapRouter02 public iSwapRouter02;
 
     uint256 public aWrpTotalSupplyNodeSide;
 
-    ///////////// TEMPORAL TESTER /////////////////
-    uint public testerFeeTracker;
-    uint public testerAmountInFees;
-    //////////////////////////////////////////////
-
-    bool public isWarping;
     mapping(address => uint256) public avaliableForRefund;
+
+    ////////////////////////////////////////////////////////////////////////
+    ///////////////////////  TESTING  ///////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    uint8 public commandTESTER;
+    uint64 public _destinationChainSelectorTESTER;
+    address public _receiverTESTER;
+
+    uint256 public tester_amount_in;
+
+    ////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
 
     /// @notice Constructor initializes the contract with the router address.
     /// @param _router The address of the router contract.
@@ -78,9 +74,11 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         address _WETH_ADDRESS,
         uint64 _MASTER_CONTRACT_CHAIN_ID,
         address _MASTER_CONTRACT_ADDRESS,
+        uint64 _NODE_CONTRACT_CHAIN_ID,
         address _POOL_ADDRESS_PROVIDER_ADDRESS,
         address _POOL_DATA_PROVIDER_ADDRESS,
-        address _UNISWAP_V3_ROUTER_02_ADDRESS
+        address _UNISWAP_V3_ROUTER02,
+        bool _isNodeActive
     ) CCIPReceiver(_router) {
         s_linkToken = IERC20(_link);
         USDC_ADDRESS = _USDC_ADDRESS;
@@ -88,28 +86,99 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         WETH_ADDRESS = _WETH_ADDRESS;
         MASTER_CONTRACT_CHAIN_ID = _MASTER_CONTRACT_CHAIN_ID;
         MASTER_CONTRACT_ADDRESS = _MASTER_CONTRACT_ADDRESS;
+        NODE_CONTRACT_CHAIN_ID = _NODE_CONTRACT_CHAIN_ID;
         POOL_ADDRESS_PROVIDER_ADDRESS = _POOL_ADDRESS_PROVIDER_ADDRESS;
         POOL_DATA_PROVIDER_ADDRESS = _POOL_DATA_PROVIDER_ADDRESS;
-        iSwapRouter02 = ISwapRouter02(_UNISWAP_V3_ROUTER_02_ADDRESS);
 
-        allowlistedDestinationChains[_MASTER_CONTRACT_CHAIN_ID] = true;
+        // uniswap interfaces
+        iSwapRouter02 = ISwapRouter02(_UNISWAP_V3_ROUTER02);
+
+        isNodeActive = _isNodeActive;
+    }
+
+    // set Allowed Nodes, can only be called once!
+    function setAllowedNodes(
+        address[] memory _allowedNodes
+    ) external onlyOwner {
+        require(_allowedNodes.length > 0, "You sent an empty array");
+        require(allowedNodes.length == 0, "allowedNodes must be empty");
+        allowedNodes = _allowedNodes;
+    }
+
+    // Internal function to check if an address is in the allowedNodes array
+    function isAllowedAddress(
+        address _nodeOrMaster
+    ) internal view returns (bool) {
+        for (uint8 i = 0; i < allowedNodes.length; i++) {
+            if (allowedNodes[i] == _nodeOrMaster) {
+                return true;
+            }
+        }
+        if (_nodeOrMaster == MASTER_CONTRACT_ADDRESS) {
+            return true;
+        }
+        return false;
+    }
+
+    // Modifier to check if msg.sender is in the allowedNodes array
+    modifier onlyAllowedAddresses(address senderAddress) {
+        require(
+            isAllowedAddress(senderAddress),
+            "Caller is not an allowed node"
+        );
+        _;
     }
 
     /////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////
-    //////////////////////////  RECEIVING MESSAGES  ////////////////////////
-    ///////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    //////////////////////////  RECEIVING MESSAGES  ///////////////////////
     //////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     /////////////////////////////////////////////////////////////////////////
     //////////////////////////  HANDLE WITHDRAW  ///////////////////////////
-    ///////////////////////////  COMMAND = 0  //////////////////////////////
-    ///////////////////////////////////////////////////////////////////////
+    ///////////////////////////  COMMAND = 0  /////////////////////////////
+    //////////////////////////////////////////////////////////////////////
 
     function _withdraw(Client.Any2EVMMessage memory _any2EvmMessage) internal {
         (, address transferToUser, uint256 shares) = abi.decode(
             _any2EvmMessage.data,
             (uint8, address, uint256)
+        );
+
+        address pool = _getPool(POOL_ADDRESS_PROVIDER_ADDRESS);
+        uint256 totalAusdc = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
+
+        uint256 amount = ((shares * 10 ** 18) * totalAusdc) /
+            aWrpTotalSupplyNodeSide;
+
+        aWrpTotalSupplyNodeSide -= shares;
+
+        if (!isNodeActive) {
+            avaliableForRefund[transferToUser] += shares;
+        } else {
+            IERC20(aUSDC_ADDRESS).approve(pool, amount / 10 ** 18);
+            IPool(pool).withdraw(
+                USDC_ADDRESS,
+                amount / 10 ** 18,
+                transferToUser
+            );
+        }
+    }
+
+    /////////////////////  WITHDRAW MASTER AND NODE IN SAME CHAIN  ///////////////////////
+
+    function withdrawFromSameChain(
+        address transferToUser,
+        uint256 shares
+    ) external {
+        require(
+            msg.sender == MASTER_CONTRACT_ADDRESS,
+            "Only Master Contract allowed"
+        );
+        require(
+            NODE_CONTRACT_CHAIN_ID == MASTER_CONTRACT_CHAIN_ID,
+            "Require caller be master contract and same chain than node"
         );
 
         address pool = _getPool(POOL_ADDRESS_PROVIDER_ADDRESS);
@@ -121,7 +190,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
 
         aWrpTotalSupplyNodeSide -= shares;
 
-        if (isWarping) {
+        if (!isNodeActive) {
             avaliableForRefund[transferToUser] += shares;
         } else {
             IERC20(aUSDC_ADDRESS).approve(pool, amount / 10 ** 18);
@@ -145,7 +214,6 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             _any2EvmMessage.data,
             (uint8, uint64, address)
         );
-
         uint256 usdcwithdrawn = _assetsAllocationWithdraw(
             POOL_ADDRESS_PROVIDER_ADDRESS,
             aUSDC_ADDRESS,
@@ -158,6 +226,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             aWrpTotalSupplyNodeSide
         );
 
+        isNodeActive = false;
         _sendMessage(
             _destinationChainSelector,
             _receiver,
@@ -167,6 +236,8 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             true
         );
     }
+
+    /////////////  WARP ASSETS MASTER AND NODE IN SAME CHAIN  //////////////
 
     /////////////// ONLY FOR TESTING ////////////////////////
     function warpAssets(
@@ -185,7 +256,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             aWrpTotalSupplyNodeSide
         );
 
-        isWarping = true;
+        isNodeActive = false;
         _sendMessage(
             _destinationChainSelector,
             _receiver,
@@ -209,13 +280,15 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             (uint8, uint256)
         );
 
+        // HERE USE UNISWAP TO PY FEES
+
         _assetsAllocationDeposit(POOL_ADDRESS_PROVIDER_ADDRESS, USDC_ADDRESS);
         aWrpTotalSupplyNodeSide = _aWrpSupplyFromOldNode;
 
-        uint8 command = 1;
-        isWarping = false;
+        uint8 commandResumeOperations = 1;
+        isNodeActive = true;
 
-        bytes memory data = abi.encode(command);
+        bytes memory data = abi.encode(commandResumeOperations);
 
         _sendMessage(
             MASTER_CONTRACT_CHAIN_ID,
@@ -236,6 +309,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         Client.Any2EVMMessage memory any2EvmMessage
     ) internal override {
         uint8 command = _internalCommandRouter(any2EvmMessage);
+        commandTESTER = command;
 
         if (command == 0) {
             _withdraw(any2EvmMessage);
@@ -244,13 +318,13 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         } else if (command == 2) {
             _allocateAssetsAndSetAWRPSupply(any2EvmMessage);
         } else {
-            revert("invalid command from Node");
+            revert("invalid command");
         }
     }
     /////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////
-    ///////////////////////  OUTGOING MESAGES HANDLER  /////////////////////
-    ///////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    ///////////////////////  OUTGOING MESAGES HANDLER  ////////////////////
+    //////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////
 
     /// ADD MODIFIERS!! ///
@@ -265,6 +339,11 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     ) internal returns (bytes32 messageId) {
         // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
         // address(linkToken) means fees are paid in LINK
+        uint256 newAmount;
+        if (_amount > 0) {
+            newAmount = _amount - (1 * 10 ** 6);
+        }
+
         address tokenFee;
         if (isPayingNative) {
             tokenFee = address(0);
@@ -276,7 +355,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             _receiver,
             _data,
             _token,
-            _amount,
+            newAmount,
             tokenFee
         );
 
@@ -289,26 +368,13 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             evm2AnyMessage
         );
 
-        //////////// TESTING /////////////////
-        testerFeeTracker = fees;
-
+        uint256 amountInUsdc;
         if (isPayingNative) {
-            IERC20(USDC_ADDRESS).approve(address(iSwapRouter02), _amount);
-            ISwapRouter02.ExactOutputSingleParams
-                memory params = _getExactOutputSingleParams(
-                    USDC_ADDRESS,
-                    WETH_ADDRESS,
-                    3000,
-                    address(this),
-                    fees,
-                    _amount
-                );
-            uint256 amountIn = iSwapRouter02.exactOutputSingle(params);
-            testerAmountInFees = amountIn;
+            amountInUsdc = _getNativeFees(fees);
         }
+        tester_amount_in = amountInUsdc;
 
         if (isPayingNative) {
-            IWETH9(WETH_ADDRESS).withdraw(fees);
             if (fees > address(this).balance) {
                 revert NotEnoughBalance(address(this).balance, fees);
             }
@@ -327,7 +393,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
 
         // approve the Router to spend tokens on contract's behalf. It will spend the amount of the given token
         if (_token != address(0)) {
-            IERC20(_token).approve(address(routerCCIP), _amount);
+            IERC20(_token).approve(address(routerCCIP), newAmount);
         }
 
         // Send the message through the router and store the returned message ID
@@ -409,7 +475,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             "Failed to transfer amount"
         );
         require(
-            !isWarping,
+            isNodeActive,
             "Asets are Warping Now, deposits on new blockchain"
         );
 
@@ -441,6 +507,38 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     }
 
     /////////////////////////////////////////////////////////////////////////
+    ///////////////   RECOVER aWRP FROM A FAILED WITHDRAW   ////////////////
+    ///////////////////////////////////////////////////////////////////////
+
+    function recoverAWRPFromFailedWithdraw() external {
+        require(avaliableForRefund[msg.sender] > 0, "No aWRP tokens to refund");
+        uint256 sharesToRefund = avaliableForRefund[msg.sender];
+
+        uint8 commandRefundAWRP = 0; // Same command than deposit
+        bytes memory data = abi.encode(
+            commandRefundAWRP,
+            msg.sender,
+            sharesToRefund
+        );
+
+        if (NODE_CONTRACT_CHAIN_ID == MASTER_CONTRACT_CHAIN_ID) {
+            IMasterNode(MASTER_CONTRACT_ADDRESS).aWarpTokenMinterFromSameChain(
+                msg.sender,
+                sharesToRefund
+            );
+        } else {
+            _sendMessage(
+                MASTER_CONTRACT_CHAIN_ID,
+                MASTER_CONTRACT_ADDRESS,
+                data,
+                address(0),
+                0,
+                false
+            );
+        }
+    }
+
+    /////////////////////////////////////////////////////////////////////////
     /////////////////////   SEND DATA NODE TO MASTER   /////////////////////
     ///////////////////////////////////////////////////////////////////////
 
@@ -469,15 +567,22 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             totalUsdcBorrow,
             supplyRate
         );
-
-        _sendMessage(
-            MASTER_CONTRACT_CHAIN_ID,
-            MASTER_CONTRACT_ADDRESS,
-            data,
-            address(0),
-            0,
-            false
-        );
+        if (NODE_CONTRACT_CHAIN_ID == MASTER_CONTRACT_CHAIN_ID) {
+            IMasterNode(MASTER_CONTRACT_ADDRESS).nodeAaveFeedFromSameChain(
+                totalUsdcSupply,
+                totalUsdcBorrow,
+                supplyRate
+            );
+        } else {
+            _sendMessage(
+                MASTER_CONTRACT_CHAIN_ID,
+                MASTER_CONTRACT_ADDRESS,
+                data,
+                address(0),
+                0,
+                false
+            );
+        }
     }
 
     /// @notice Fallback function to allow the contract to receive Ether.
@@ -489,59 +594,37 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     /////////////////////////////   UTILS   ////////////////////////////////
     ///////////////////////////////////////////////////////////////////////
 
-    function _getExactOutputSingleParams(
-        address _tokenIn,
-        address _tokenOut,
-        uint24 _fee,
-        address _recipient,
-        uint256 _amountOut,
-        uint256 _amountInMaximum
-    ) internal pure returns (ISwapRouter02.ExactOutputSingleParams memory) {
-        return
-            ISwapRouter02.ExactOutputSingleParams({
-                tokenIn: _tokenIn,
-                tokenOut: _tokenOut,
-                fee: _fee,
-                recipient: _recipient,
-                amountOut: _amountOut,
-                amountInMaximum: _amountInMaximum,
+    function _getNativeFees(uint256 fees) public returns (uint256) {
+        // Approve the router to spend USDC.
+        uint256 usdcBalance = IERC20(USDC_ADDRESS).balanceOf(address(this));
+        IERC20(USDC_ADDRESS).approve(address(iSwapRouter02), usdcBalance);
+
+        // Set up the parameters for the swap.
+        ISwapRouter02.ExactOutputSingleParams memory params = ISwapRouter02
+            .ExactOutputSingleParams({
+                tokenIn: USDC_ADDRESS,
+                tokenOut: WETH_ADDRESS,
+                fee: 500,
+                recipient: address(this),
+                amountOut: fees,
+                amountInMaximum: usdcBalance, // for testing dont mind slipperage
                 sqrtPriceLimitX96: 0
             });
+
+        // Execute the swap.
+        uint256 amountIn = iSwapRouter02.exactOutputSingle(params);
+        IWETH9(WETH_ADDRESS).withdraw(fees);
+        return amountIn;
     }
 
-    // FACTORIZE THIS!!
-    function getLinkFees(
-        uint64 destinationCCIPid,
-        address receiver,
-        bytes memory _data
-    ) public view returns (uint256) {
-        Client.EVM2AnyMessage memory evm2AnyMessage = Client.EVM2AnyMessage({
-            receiver: abi.encode(receiver), // ABI-encoded receiver address
-            data: _data, // ABI-encoded data
-            tokenAmounts: new Client.EVMTokenAmount[](0), // Empty array indicating no tokens are being sent
-            extraArgs: Client._argsToBytes(
-                // Additional arguments, setting gas limit
-                Client.EVMExtraArgsV1({gasLimit: 1_000_000})
-            ),
-            // Set the feeToken  address, indicating LINK will be used for fees
-            feeToken: address(s_linkToken)
-        });
-
-        // Get the fee required to send the message
-        IRouterClient router = IRouterClient(this.getRouter());
-        uint256 fees = router.getFee(destinationCCIPid, evm2AnyMessage);
-        return fees;
-    }
-
-    function testerTansformAusdc() external onlyOwner {
-        _assetsAllocationWithdraw(
-            POOL_ADDRESS_PROVIDER_ADDRESS,
-            aUSDC_ADDRESS,
-            USDC_ADDRESS
-        );
-    }
+    // ONLY FOR TESTING TO RECOVER FUNDS ON EVERY ITERATION
 
     function testerRecoverFunds() external onlyOwner {
+        uint256 balanceAusd = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
+        if (balanceAusd > 0) {
+            address pool = _getPool(POOL_ADDRESS_PROVIDER_ADDRESS);
+            IPool(pool).withdraw(USDC_ADDRESS, balanceAusd, msg.sender);
+        }
         uint256 balance = IERC20(USDC_ADDRESS).balanceOf(address(this));
         IERC20(USDC_ADDRESS).transfer(msg.sender, balance);
         uint256 balanceWETH = IERC20(WETH_ADDRESS).balanceOf(address(this));

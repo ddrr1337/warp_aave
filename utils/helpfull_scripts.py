@@ -2,6 +2,7 @@ from brownie import accounts, network, config
 from brownie import interface, config, network
 from web3 import Web3
 from brownie import web3
+import math
 
 
 ACCOUNT = "main"
@@ -65,10 +66,11 @@ def approve_erc20(spender, amount, erc20_address, account):
     return tx
 
 
-def get_weth(amount):
-    account = get_account()
-    weth = interface.IWeth(config["networks"][network.show_active()]["weth_token"])
-    tx = weth.deposit({"from": account, "value": amount})
-    tx.wait(1)
-    print(f"Recived {Web3.fromWei(amount,'ether')} WETH ")
-    return tx
+def from_sqrtPriceX96_to_price(sqrtPriceX96):
+    # Calcula la raíz cuadrada de n
+    sqrt_n = math.isqrt(sqrtPriceX96)
+
+    # Multiplica por 2^96
+    result = sqrt_n / 2**96
+
+    return result

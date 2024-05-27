@@ -1,5 +1,6 @@
 dependencies:
-  - OpenZeppelin/openzeppelin-contracts@4.8.3
+  - OpenZeppelin/openzeppelin-contracts@5.0.2
+  - Uniswap/swap-router-contracts@1.1.0
   - smartcontractkit/ccip@2.9.1-ccip1.4.9-release
   - aave/aave-v3-core@1.17.2
   - ddrr1337/evm-cctp-contracts@1.0.0
@@ -8,8 +9,10 @@ compiler:
     optimizer:
       enabled: True
       runs: 200
+    viaIR: true
     remappings:
       - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.8.3"
+      - "@Uniswap=Uniswap/swap-router-contracts@1.1.0"
       - "@chainlink=smartcontractkit/ccip@2.9.1-ccip1.4.9-release"
       - "@aave=aave/aave-v3-core@1.17.2"
       - "@circle=ddrr1337/evm-cctp-contracts@1.0.0"
@@ -44,9 +47,13 @@ networks:
     aave_data_provider: "0x12373B5085e3b42D42C1D4ABF3B3Cf4Df0E0Fa01"
     link_token: "0xb1D4538B4571d411F07960EF2838Ce337FE1E80E"
     uniswap_V3_factory: "0x248AB79Bbb9bC29bB72f7Cd42F17e054Fc40188e"
+    uniswap_V3_router: "0x101F443B4d1b059569D643917553c771E1b9663E"
+    non_fungible_position_manager: "0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65"
     weth: "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73"
+    uniswap_router_02: "0x101F443B4d1b059569D643917553c771E1b9663E"
     verify: True
     gas_setup: "2 gwei"
+    host: ${SEPOLIA_ARBITRUM_HOST}
 
   optimistic_sepolia:
     BC_identifier: 5224473277236331295
@@ -63,9 +70,12 @@ networks:
     aave_data_provider: "0x501B4c19dd9C2e06E94dA7b6D5Ed4ddA013EC741"
     link_token: "0xE4aB69C077896252FAFBD49EFD26B5D171A32410"
     uniswap_V3_factory: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24"
+    uniswap_V3_router: "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4"
+    non_fungible_position_manager: "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2"
     weth: "0x4200000000000000000000000000000000000006"
     verify: True
     gas_setup: "2 gwei"
+    host: ${SEPOLIA_OPTIMISTIC_HOST}
   
   base_sepolia:
     BC_identifier: 10344971235874465080
@@ -82,9 +92,39 @@ networks:
     aave_data_provider: "0x80437224dc5Dcb43C5fC87CBdE73152418055274"
     link_token: "0xE4aB69C077896252FAFBD49EFD26B5D171A32410"
     uniswap_V3_factory: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24"
+    uniswap_V3_router: "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4"
+    non_fungible_position_manager: "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2"
+    uniswap_V2_factory: "0x7Ae58f10f7849cA6F5fB71b7f45CB416c9204b1e"
     weth: "0x4200000000000000000000000000000000000006"
+    uniswap_V2_router: "0x1689E7B1F10000AE47eBfE339a4f69dECd19F602"
     verify: True
     gas_setup: "2 gwei"
+    host: ${SEPOLIA_BASE_HOST}
+
+  base_mainnet:
+    BC_identifier: 0
+    circle_message_transmitter: ""
+    circle_token_messenger: "0x1682Ae6375C4E4A97e4B583BC394c861A46D8962"
+    router_ccip_address: ""
+    circle_chain_id: 0
+    explorer: ''
+    chainid: 0
+    usdt_token: ""
+    usdc_circle_token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+    ausdc_circle_token: ""
+    aave_pool_addresses_provider: ""
+    aave_data_provider: ""
+    link_token: ""
+    uniswap_V3_factory: ""
+    uniswap_V2_factory: "0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6"
+    uniswap_V2_router: "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24"
+    weth: "0x4200000000000000000000000000000000000006"
+    uniswap_router_02: ""
+    verify: True
+    gas_setup: "2 gwei"
+    host: ${BASE_HOST}
+
+
 
   polygon-test:
     BC_identifier: 12532609583862916517
@@ -126,9 +166,12 @@ networks:
     dummy_dao_address: "0xdDEAB6bC8cD6a8Ac6a354e45C9bC0dB617c1ac52"
     vrf_provider: "0xab18414CD93297B0d12ac29E63Ca20f515b3DB46"
     uniswap_V3_factory: "0x0227628f3F023bb0B980b67D528571c95c6DaC1c"
-    weth: "0xfff9976782d46cc05630d1f6ebab18b2324d6b14"
+    weth: "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9"
+    uniswap_V2_router: "0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008"
+    uniswap_V2_factory: "0x7E0987E5b3a30e3f2828572Bb659A548460a3003"
     verify: True
     gas_setup: "2 gwei"
+    host: ${SEPOLIA_HOST}
  
 
   mainnet-fork-dev:
@@ -149,3 +192,7 @@ wallets:
     from_key: ${PRIVATE_KEY_2}
   third:
     from_key: ${PRIVATE_KEY_3}
+  bot:
+    from_key: ${PRIVATE_KEY_4}
+  bot_receiver:
+    from_key: ${PRIVATE_KEY_5}

@@ -8,11 +8,11 @@ from brownie import (
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
 
-def deploy_bridge():
+def deploy_bridge(account):
     contract = Bridge.deploy(
         config["networks"][network.show_active()].get("usdc_circle_token"),
         config["networks"][network.show_active()].get("circle_token_messenger"),
-        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
+        {"from": account, "gas_price": get_gas_price() * 1.5},
     )
     return contract
 
@@ -53,34 +53,32 @@ def allowance(account):
     print(allow)
 
 
-def multiple_deploy():
-    deploy_bridge()
+def multiple_deploy(account):
+    deploy_bridge(account)
     print(f"Bridge deployed in {network.show_active()}")
     print("-------------------------------------------")
     network.disconnect()
     network.connect("arbitrum_sepolia")
-    deploy_bridge()
+    deploy_bridge(account)
     print(f"Bridge deployed in {network.show_active()}")
     print("-------------------------------------------")
     network.disconnect()
     network.connect("optimistic_sepolia")
-    deploy_bridge()
+    deploy_bridge(account)
     print(f"Bridge deployed in {network.show_active()}")
     print("-------------------------------------------")
     network.disconnect()
     network.connect("base_sepolia")
-    deploy_bridge()
+    deploy_bridge(account)
     print(f"Bridge deployed in {network.show_active()}")
     print("-------------------------------------------")
 
     print("------------------ALL DEPLOYS COMPLETED-------------------------------")
 
 
-def collect_fees():
+def collect_fees(account):
     contract = Bridge[-1]
-    collect = contract.collectFees(
-        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5}
-    )
+    collect = contract.collectFees({"from": account, "gas_price": get_gas_price() * 5})
 
 
 def claim_assets_from_bridge(account):
@@ -95,12 +93,9 @@ def claim_assets_from_bridge(account):
 
 
 def main():
-    # deploy_bridge()
-    multiple_deploy()
-    # print(get_account(account="main"))
-    # get_pool()
-    # get_usdc_balance(Bridge[-1].address)
-    # collect_fees()
+    # deploy_bridge(get_account(account="main"))
+    # multiple_deploy()
+    collect_fees(get_account(account="main"))
     # claim_assets_from_bridge(get_account(account="main"))
 
     # allowance(get_account(account="main").address)

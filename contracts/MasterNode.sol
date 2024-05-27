@@ -10,11 +10,7 @@ import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interface
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-/**
- * THIS IS AN EXAMPLE CONTRACT THAT USES HARDCODED VALUES FOR CLARITY.
- * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
- * DO NOT USE THIS CODE IN PRODUCTION.
- */
+import "../interfaces/INode.sol";
 
 /// @title - A simple messenger contract for transferring/receiving tokens and data across chains.
 contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
@@ -29,7 +25,6 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
 
     LinkTokenInterface private s_linkToken;
 
-    /// TESTER ////
     uint64 public immutable MASTER_CONTRACT_CHAIN_ID;
 
     struct ValidNodes {
@@ -44,6 +39,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
 
     mapping(address => ValidNodes) public validNodes;
 
+    bool public allowMoreNodes = true;
     address public activeNode;
 
     /// @notice Constructor initializes the contract with the router address.
@@ -65,11 +61,16 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         _;
     }
 
+    function stopAddingNodes() external onlyOwner {
+        allowMoreNodes = false;
+    }
+
     function addValidNode(
         address nodeAddress,
         uint64 chainCCIPid,
         bool isActiveNode
     ) external onlyOwner {
+        require(allowMoreNodes, "No more nodes allowed");
         validNodes[nodeAddress].isValidNode = true;
         validNodes[nodeAddress].isActiveNode = isActiveNode;
         validNodes[nodeAddress].chainCCIPid = chainCCIPid;
@@ -88,13 +89,13 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
     }
 
     /////////////////////////////////////////////////////////////////////////
-    ////////////////////  INCOMING DEPOSIT => MINT AWRP  ///////////////////
+    ////////////////////  INCOMING DEPOSIT => MINT aWRP  ///////////////////
     ////////////////////////  COMMAND == 0  ///////////////////////////////
     //////////////////////////////////////////////////////////////////////
 
-    function aWarpTokenMinter(
+    function _aWarpTokenMinter(
         Client.Any2EVMMessage memory _any2EvmMessage
-    ) public {
+    ) internal {
         (, address userAddress, uint256 shares) = abi.decode(
             _any2EvmMessage.data,
             (uint8, address, uint256)
@@ -103,8 +104,22 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         _mint(userAddress, shares);
     }
 
+    ///////////////////  DEPOSIT, MASTER AND NODE IN SAME CHAIN  /////////////////
+
+    function aWarpTokenMinterFromSameChain(
+        address userAddress,
+        uint256 shares
+    ) external {
+        require(
+            validNodes[msg.sender].chainCCIPid == MASTER_CONTRACT_CHAIN_ID,
+            "Require caller be a valid node and same chain than master"
+        );
+
+        _mint(userAddress, shares);
+    }
+
     /////////////////////////////////////////////////////////////////////////
-    //////////////////////  RESUME PROTOCOL OPEATIONS  /////////////////////
+    //////////////////////  RESUME PROTOCOL OPERATIONS  ////////////////////
     ////////////////////////  COMMAND == 1  ///////////////////////////////
     //////////////////////////////////////////////////////////////////////
 
@@ -150,6 +165,24 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
             .supplyRate = supplyRate;
     }
 
+    ////////////////  DATA AAVE, MASTER AND NODE IN SAME CHAIN  //////////////
+
+    function nodeAaveFeedFromSameChain(
+        uint256 totalUsdcSupply,
+        uint256 totalUsdcBorrow,
+        uint256 supplyRate
+    ) external {
+        require(
+            validNodes[msg.sender].chainCCIPid == MASTER_CONTRACT_CHAIN_ID,
+            "Require caller be a valid node and same chain than master"
+        );
+
+        validNodes[msg.sender].lastDataFromAave = block.timestamp;
+        validNodes[msg.sender].totalUsdcSupply = totalUsdcSupply;
+        validNodes[msg.sender].totalUsdcBorrow = totalUsdcBorrow;
+        validNodes[msg.sender].supplyRate = supplyRate;
+    }
+
     /////////////////////////////////////////////////////////////////////////
     ///////////////////////  INCOMING MESAGES HANDLER  /////////////////////
     ///////////////////////////////////////////////////////////////////////
@@ -164,7 +197,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         );
         uint8 command = internalCommandRouter(any2EvmMessage);
         if (command == 0) {
-            aWarpTokenMinter(any2EvmMessage);
+            _aWarpTokenMinter(any2EvmMessage);
         } else if (command == 1) {
             _resmumeOperations(any2EvmMessage);
         } else if (command == 2) {
@@ -263,6 +296,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         validNodes[activeNode].isActiveNode = false;
 
         _sendMessage(validNodes[activeNode].chainCCIPid, activeNode, data);
+        activeNode = address(0);
     }
 
     /////////////////////////////////////////////////////////////////////////
@@ -280,25 +314,34 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
 
         _burn(msg.sender, shares);
 
-        _sendMessage(validNodes[activeNode].chainCCIPid, activeNode, data);
+        if (validNodes[activeNode].chainCCIPid == MASTER_CONTRACT_CHAIN_ID) {
+            INode(activeNode).withdrawFromSameChain(msg.sender, shares);
+        } else {
+            _sendMessage(validNodes[activeNode].chainCCIPid, activeNode, data);
+        }
     }
 
     /////////////////////////////////////////////////////////////////////////
     /////////////////////////////   UTILS   ////////////////////////////////
     ///////////////////////////////////////////////////////////////////////
 
+    // get ChainId from active node, only for frontend, no impact in contract
+    function getChainIdFromActiveNode() external view returns (uint64) {
+        return validNodes[activeNode].chainCCIPid;
+    }
+
     function checkApprovedWarp(
         address _activeNode,
         address destinationNode
     ) public view returns (bool) {
-        uint256 now = block.timestamp;
-
+        //require 24 after last warp
         return
             validNodes[_activeNode].isActiveNode == true &&
             validNodes[_activeNode].lastDataFromAave > 0 &&
             validNodes[destinationNode].lastDataFromAave > 0 &&
-            validNodes[_activeNode].lastDataFromAave + 3600 > now &&
-            validNodes[destinationNode].lastDataFromAave + 3600 > now &&
+            validNodes[_activeNode].lastDataFromAave + 3600 > block.timestamp &&
+            validNodes[destinationNode].lastDataFromAave + 3600 >
+            block.timestamp &&
             validNodes[destinationNode].isValidNode == true &&
             validNodes[destinationNode].isActiveNode == false &&
             validNodes[_activeNode].supplyRate > 0 &&
@@ -306,8 +349,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
             validNodes[destinationNode].supplyRate;
     }
 
-
-
+    // get link fees needed, only for frontend no impact in contract
     function getLinkFees(
         uint64 destinationChainSelector,
         address receiver,
