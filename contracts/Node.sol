@@ -341,7 +341,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         // address(linkToken) means fees are paid in LINK
         uint256 newAmount;
         if (_amount > 0) {
-            newAmount = _amount - (1 * 10 ** 6);
+            newAmount = _amount;
         }
 
         address tokenFee;
@@ -371,6 +371,13 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         uint256 amountInUsdc;
         if (isPayingNative) {
             amountInUsdc = _getNativeFees(fees);
+            evm2AnyMessage = _buildCCIPMessage(
+                _receiver,
+                _data,
+                _token,
+                newAmount - amountInUsdc,
+                tokenFee
+            );
         }
         tester_amount_in = amountInUsdc;
 
