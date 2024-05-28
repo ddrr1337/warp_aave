@@ -60,6 +60,8 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
 
     uint256 public tester_amount_in;
 
+    bool public resumeOperations;
+
     ////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
 
@@ -129,6 +131,14 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         _;
     }
 
+    modifier masterAndNodeInSameChain() {
+        require(
+            NODE_CONTRACT_CHAIN_ID == MASTER_CONTRACT_CHAIN_ID,
+            "Require master and node in same chain"
+        );
+        _;
+    }
+
     /////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
     //////////////////////////  RECEIVING MESSAGES  ///////////////////////
@@ -171,14 +181,10 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     function withdrawFromSameChain(
         address transferToUser,
         uint256 shares
-    ) external {
+    ) external masterAndNodeInSameChain {
         require(
             msg.sender == MASTER_CONTRACT_ADDRESS,
             "Only Master Contract allowed"
-        );
-        require(
-            NODE_CONTRACT_CHAIN_ID == MASTER_CONTRACT_CHAIN_ID,
-            "Require caller be master contract and same chain than node"
         );
 
         address pool = _getPool(POOL_ADDRESS_PROVIDER_ADDRESS);
@@ -280,24 +286,24 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             (uint8, uint256)
         );
 
-        // HERE USE UNISWAP TO PY FEES
+        resumeOperations = true;
 
         _assetsAllocationDeposit(POOL_ADDRESS_PROVIDER_ADDRESS, USDC_ADDRESS);
-        aWrpTotalSupplyNodeSide = _aWrpSupplyFromOldNode;
+        /*         aWrpTotalSupplyNodeSide = _aWrpSupplyFromOldNode;
 
         uint8 commandResumeOperations = 1;
         isNodeActive = true;
 
-        bytes memory data = abi.encode(commandResumeOperations);
+        bytes memory data = abi.encode(commandResumeOperations); */
 
-        _sendMessage(
+        /*         _sendMessage(
             MASTER_CONTRACT_CHAIN_ID,
             MASTER_CONTRACT_ADDRESS,
             data,
             address(0),
             0,
             true
-        );
+        ); */
     }
     /////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////
@@ -371,13 +377,15 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         uint256 amountInUsdc;
         if (isPayingNative) {
             amountInUsdc = _getNativeFees(fees);
-            evm2AnyMessage = _buildCCIPMessage(
-                _receiver,
-                _data,
-                _token,
-                newAmount - amountInUsdc,
-                tokenFee
-            );
+            if (newAmount > 0) {
+                evm2AnyMessage = _buildCCIPMessage(
+                    _receiver,
+                    _data,
+                    _token,
+                    newAmount - amountInUsdc,
+                    tokenFee
+                );
+            }
         }
         tester_amount_in = amountInUsdc;
 

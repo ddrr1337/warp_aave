@@ -163,9 +163,23 @@ def positions(tokenId):
     print(response)
 
 
+def initialize():
+    contract = interface.IUniswapV2Pair("0x35E5FB5a1bC92cEd31Ad2C1A4ab2eD6f854349a0")
+    start = contract.initialize(
+        4942937765421867558197527,
+        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
+    )
+
+
+def get_token():
+    contract = interface.IUniswapV2Pair("0x35E5FB5a1bC92cEd31Ad2C1A4ab2eD6f854349a0")
+    token0 = contract.token1()
+    print("slot0", token0)
+
+
 def main():
 
-    # deposit_eth_to_get_weth(get_account(account="main"), 0.7 * 10**18)
+    # deposit_eth_to_get_weth(get_account(account="main"), 0.01 * 10**18)
     # withdraw_eth(get_account(account="main"), 0.5 * 10**18)
     """erc_balance(
         config["networks"][network.show_active()].get("weth"),
@@ -173,9 +187,12 @@ def main():
         18,
     )"""
     """ add_liquidity(
-        get_account(account="main"), 200 * 10**6, 0.051948051948052 * 10**18, 500
+        get_account(account="main"), 20 * 10**6, 0.0051948051948052 * 10**18, 10000
     ) """
-    positions(50)
+    get_token()
+    # print(datetime.now().timestamp() + 500)
+    # initialize()
+    # positions(50)
     # decrease_liquidity(get_account(account="main"), 49, 3220205425317)
     # collect(get_account(account="main"), 49)
     # calculate_sqrtPriceX96(3000)

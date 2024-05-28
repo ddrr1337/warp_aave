@@ -10,9 +10,9 @@ from eth_abi import encode
 from datetime import datetime
 
 
-MASTER_CONTRACT_ARBITRUM = "0xf09277db0cD46819450eaAefdBB7eec284C81E7c"
-OPTIMISTIC_NODE = "0x85A8CC6932494C43599eF53B919DE82Aa1a293f6"
-BASE_NODE = "0x85A8CC6932494C43599eF53B919DE82Aa1a293f6"
+MASTER_CONTRACT_ARBITRUM = "0xeEBa0f50f5446cC2Afa0589c453b578ff93AEEdA"
+OPTIMISTIC_NODE = "0xe61141f515E3e422A8a8485483bBc4481875F079"
+BASE_NODE = "0x03A45a437f5632979b7419177212297843756875"
 
 
 def deploy_master():
@@ -204,21 +204,21 @@ def tester_amount():
 
 def main():
     # tester_recover_funds_both()
-    # deploy_master()  # deploy on Sepolia
-    deploy_node()
+    # deploy_master()  # deploy on arbitrum
+    # deploy_node()
 
     """add_valid_node_on_master(
         OPTIMISTIC_NODE,
         config["networks"]["optimistic_sepolia"].get("BC_identifier"),
         True,
-    )  # called in sepolia
+    )  # called in arbitrum
     add_valid_node_on_master(
         BASE_NODE,
         config["networks"]["base_sepolia"].get("BC_identifier"),
         False,
-    )"""  # called in sepolia
+    )"""  # called in arbitrum
     # set_allowed_nodes_in_all_nodes()  # call in optimistic (first active node)
-    deposit_node(3 * 10**6, get_account(account="main"))
+    # deposit_node(3 * 10**6, get_account(account="main"))
     # tester_amount()
     # call on optimistic
     # get_shares(get_account(account="main"))
@@ -231,8 +231,8 @@ def main():
         config["networks"]["base_sepolia"].get("BC_identifier"),
         BASE_NODE,
         get_account(account="main"),
-    ) """
-
+    )  # called on arbitrum
+ """
     warp_assets_optimistic(
         config["networks"]["base_sepolia"].get("BC_identifier"),
         BASE_NODE,

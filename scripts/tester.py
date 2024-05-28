@@ -32,10 +32,17 @@ def swap():
     )
 
 
+def get_token():
+    contract = interface.IUniswapV2Pair("0x35E5FB5a1bC92cEd31Ad2C1A4ab2eD6f854349a0")
+    token0 = contract.token0()
+    print("Tokne0", token0)
+
+
 def main():
     # deploy_tester()
     # swap()
-    balance_WETH(Tester[-1].address)
+    # balance_WETH(Tester[-1].address)
+    get_token()
     print()
     print()
 

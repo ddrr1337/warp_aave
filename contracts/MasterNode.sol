@@ -61,6 +61,14 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         _;
     }
 
+    modifier masterAndNodeInSameChain() {
+        require(
+            validNodes[msg.sender].chainCCIPid == MASTER_CONTRACT_CHAIN_ID,
+            "Require master and node in same chain"
+        );
+        _;
+    }
+
     function stopAddingNodes() external onlyOwner {
         allowMoreNodes = false;
     }
@@ -109,12 +117,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
     function aWarpTokenMinterFromSameChain(
         address userAddress,
         uint256 shares
-    ) external {
-        require(
-            validNodes[msg.sender].chainCCIPid == MASTER_CONTRACT_CHAIN_ID,
-            "Require caller be a valid node and same chain than master"
-        );
-
+    ) external masterAndNodeInSameChain onlyAllowedNodes(msg.sender) {
         _mint(userAddress, shares);
     }
 
@@ -129,6 +132,17 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         validNodes[abi.decode(_any2EvmMessage.sender, (address))]
             .isActiveNode = true;
         activeNode = abi.decode(_any2EvmMessage.sender, (address));
+    }
+
+    ///////////  RESUME OPERATIONS, MASTER AND NODE IN SAME CHAIN  //////////
+
+    function _resmumeOperationsFromSameChain()
+        external
+        masterAndNodeInSameChain
+        onlyAllowedNodes(msg.sender)
+    {
+        validNodes[msg.sender].isActiveNode = true;
+        activeNode = msg.sender;
     }
 
     /////////////////////////////////////////////////////////////////////////
@@ -171,12 +185,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         uint256 totalUsdcSupply,
         uint256 totalUsdcBorrow,
         uint256 supplyRate
-    ) external {
-        require(
-            validNodes[msg.sender].chainCCIPid == MASTER_CONTRACT_CHAIN_ID,
-            "Require caller be a valid node and same chain than master"
-        );
-
+    ) external masterAndNodeInSameChain onlyAllowedNodes(msg.sender) {
         validNodes[msg.sender].lastDataFromAave = block.timestamp;
         validNodes[msg.sender].totalUsdcSupply = totalUsdcSupply;
         validNodes[msg.sender].totalUsdcBorrow = totalUsdcBorrow;
