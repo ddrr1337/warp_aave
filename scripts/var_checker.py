@@ -8,7 +8,11 @@ from brownie import (
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 from eth_abi import encode
 from datetime import datetime
-from .action_path import ARBITRUM_NODE, OPTIMISTIC_NODE, BASE_NODE
+from .action_path import (
+    OPTIMISTIC_NODE,
+    BASE_NODE,
+    MASTER_CONTRACT_ARBITRUM,
+)
 
 
 def aWRP_balance(account):
@@ -49,17 +53,17 @@ def get_node_data(nodeAddress):
 def get_nodes_data():
     print()
     print("----------------------ARBITRUM---------------------------")
-    get_node_data(ARBITRUM_NODE)
+    get_node_data(OPTIMISTIC_NODE)
     print()
     print("----------------------OPTIMISTIC---------------------------")
-    get_node_data(OPTIMISTIC_NODE)
+    get_node_data(BASE_NODE)
 
 
 def get_active_node():
     contract = MasterNode[-1]
     active_node = contract.activeNode()
     print(active_node)
-    print(active_node == ARBITRUM_NODE)
+    print(active_node == OPTIMISTIC_NODE)
 
 
 def get_active_nmodes_from_nodes(index):
@@ -74,15 +78,29 @@ def get_active_node():
     print(active_node)
 
 
+def get_chain_CCIPidActiveNode():
+    contract = MasterNode[-1]
+    chainId = contract.getChainIdFromActiveNode()
+    print("ChainID from active node", chainId)
+
+
+def calculateWithdraw():
+    contract = Node[-1]
+    result = contract.calculateSharesValue(3 * 10**18)
+    print(result)
+
+
 def main():
 
     # aWrp_total_supply_node()  # call on Nodes
-    # aWrp_total_supply_master()  # call on sepolia
-    # aWRP_balance(get_account(account="main"))  # call on sepolia
+    # aWrp_total_supply_master()  # call on naster
+    # aWRP_balance(get_account(account="main"))  # call on naster
     # get_nodes_data()
     # get_active_node()
     # get_active_nmodes_from_nodes(1)
-    get_active_node()
+    # get_active_node()
+    # get_chain_CCIPidActiveNode()
+    calculateWithdraw()
 
     print()
     print()

@@ -12,4 +12,6 @@ interface IMasterNode {
         uint256 totalUsdcBorrow,
         uint256 supplyRate
     ) external;
+
+    function _resmumeOperationsFromSameChain() external;
 }

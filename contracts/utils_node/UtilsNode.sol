@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "../../interfaces/IPoolAddressesProvider.sol";
+import "../../interfaces/IPoolDataProvider.sol";
 import "../../interfaces/IPool.sol";
 import "@chainlink/contracts/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {Client} from "@chainlink/contracts/src/v0.8/ccip/libraries/Client.sol";
@@ -73,5 +74,17 @@ contract UtilsNode {
         IRouterClient router = IRouterClient(routerAddress);
         uint256 fees = router.getFee(destinationCCIPid, evm2AnyMessage);
         return fees;
+    }
+
+    // frontend quet curent AAVE suply on this node (no impact in contract)
+    function getAaveSupplyRate(
+        address poolDAtaProvider,
+        address usdcAddress
+    ) external view returns (uint256) {
+        (, , , , , uint256 supplyRate, , , , , , ) = IPoolDataProvider(
+            poolDAtaProvider
+        ).getReserveData(usdcAddress);
+
+        return supplyRate;
     }
 }

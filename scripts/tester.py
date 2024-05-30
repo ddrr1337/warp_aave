@@ -41,8 +41,8 @@ def get_token():
 def main():
     # deploy_tester()
     # swap()
-    # balance_WETH(Tester[-1].address)
-    get_token()
+    balance_WETH(get_account(account="main"))
+    # get_token()
     print()
     print()
 

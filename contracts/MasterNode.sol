@@ -9,11 +9,13 @@ import {CCIPReceiver} from "@chainlink/contracts/src/v0.8/ccip/applications/CCIP
 import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./utils_node/UtilsMasterNode.sol";
 
+// Node interface
 import "../interfaces/INode.sol";
 
 /// @title - A simple messenger contract for transferring/receiving tokens and data across chains.
-contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
+contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
     // Custom errors to provide more descriptive revert messages.
     error NotEnoughBalance(uint256 currentBalance, uint256 calculatedFees); // Used to make sure contract has enough balance to cover the fees.
     error NothingToWithdraw(); // Used when trying to withdraw Ether but there's nothing to withdraw.
@@ -54,7 +56,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         MASTER_CONTRACT_CHAIN_ID = _MASTER_CONTRACT_CHAIN_ID;
     }
 
-    modifier onlyAllowedNodes(address nodeAddress) {
+    modifier onlyValidNodes(address nodeAddress) {
         if (!validNodes[nodeAddress].isValidNode) {
             revert DestinationNodeNotValid(nodeAddress);
         }
@@ -88,14 +90,6 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         }
     }
 
-    function internalCommandRouter(
-        Client.Any2EVMMessage memory _any2EvmMessage
-    ) public returns (uint8) {
-        uint8 command = abi.decode(_any2EvmMessage.data, (uint8));
-
-        return command;
-    }
-
     /////////////////////////////////////////////////////////////////////////
     ////////////////////  INCOMING DEPOSIT => MINT aWRP  ///////////////////
     ////////////////////////  COMMAND == 0  ///////////////////////////////
@@ -117,7 +111,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
     function aWarpTokenMinterFromSameChain(
         address userAddress,
         uint256 shares
-    ) external masterAndNodeInSameChain onlyAllowedNodes(msg.sender) {
+    ) external masterAndNodeInSameChain onlyValidNodes(msg.sender) {
         _mint(userAddress, shares);
     }
 
@@ -139,7 +133,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
     function _resmumeOperationsFromSameChain()
         external
         masterAndNodeInSameChain
-        onlyAllowedNodes(msg.sender)
+        onlyValidNodes(msg.sender)
     {
         validNodes[msg.sender].isActiveNode = true;
         activeNode = msg.sender;
@@ -153,12 +147,6 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
     function _nodeAaveFeed(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) internal {
-        require(
-            validNodes[abi.decode(_any2EvmMessage.sender, (address))]
-                .isValidNode,
-            "Node is not valid"
-        );
-
         (
             ,
             uint256 totalUsdcSupply,
@@ -185,46 +173,55 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
         uint256 totalUsdcSupply,
         uint256 totalUsdcBorrow,
         uint256 supplyRate
-    ) external masterAndNodeInSameChain onlyAllowedNodes(msg.sender) {
+    ) external masterAndNodeInSameChain onlyValidNodes(msg.sender) {
         validNodes[msg.sender].lastDataFromAave = block.timestamp;
         validNodes[msg.sender].totalUsdcSupply = totalUsdcSupply;
         validNodes[msg.sender].totalUsdcBorrow = totalUsdcBorrow;
         validNodes[msg.sender].supplyRate = supplyRate;
     }
 
+    //////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////
-    ///////////////////////  INCOMING MESAGES HANDLER  /////////////////////
-    ///////////////////////////////////////////////////////////////////////
+    ////////////////////////  INCOMING MESAGE HANDLER  /////////////////////
+    /////////////////  THIS FUNC IS CALLED BY CHAINLINK  //////////////////
+    //////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     function _ccipReceive(
-        Client.Any2EVMMessage memory any2EvmMessage
-    ) internal override {
+        Client.Any2EVMMessage memory _any2EvmMessage
+    )
+        internal
+        override
+        onlyValidNodes(abi.decode(_any2EvmMessage.sender, (address)))
+    {
         require(
-            validNodes[abi.decode(any2EvmMessage.sender, (address))]
+            validNodes[abi.decode(_any2EvmMessage.sender, (address))]
                 .isValidNode,
             "Incoming Message not from a valid node"
         );
-        uint8 command = internalCommandRouter(any2EvmMessage);
+        uint8 command = _internalCommandRouter(_any2EvmMessage);
         if (command == 0) {
-            _aWarpTokenMinter(any2EvmMessage);
+            _aWarpTokenMinter(_any2EvmMessage);
         } else if (command == 1) {
-            _resmumeOperations(any2EvmMessage);
+            _resmumeOperations(_any2EvmMessage);
         } else if (command == 2) {
-            _nodeAaveFeed(any2EvmMessage);
+            _nodeAaveFeed(_any2EvmMessage);
         } else {
             revert("invalid command from Node");
         }
     }
 
     /////////////////////////////////////////////////////////////////////////
-    ///////////////////////  OUTGOING MESAGES HANDLER  /////////////////////
-    ///////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    ///////////////////////  OUTGOING MESAGES HANDLER  ////////////////////
+    //////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     function _sendMessage(
         uint64 _destinationChainSelector,
         address _receiver,
         bytes memory _data
-    ) internal onlyAllowedNodes(_receiver) returns (bytes32 messageId) {
+    ) internal onlyValidNodes(_receiver) returns (bytes32 messageId) {
         // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
         // address(linkToken) means fees are paid in LINK
         Client.EVM2AnyMessage memory evm2AnyMessage = _buildCCIPMessage(
@@ -334,11 +331,6 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
     /////////////////////////////   UTILS   ////////////////////////////////
     ///////////////////////////////////////////////////////////////////////
 
-    // get ChainId from active node, only for frontend, no impact in contract
-    function getChainIdFromActiveNode() external view returns (uint64) {
-        return validNodes[activeNode].chainCCIPid;
-    }
-
     function checkApprovedWarp(
         address _activeNode,
         address destinationNode
@@ -358,27 +350,8 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20 {
             validNodes[destinationNode].supplyRate;
     }
 
-    // get link fees needed, only for frontend no impact in contract
-    function getLinkFees(
-        uint64 destinationChainSelector,
-        address receiver,
-        bytes memory _data
-    ) public view returns (uint256) {
-        Client.EVM2AnyMessage memory evm2AnyMessage = Client.EVM2AnyMessage({
-            receiver: abi.encode(receiver), // ABI-encoded receiver address
-            data: _data, // ABI-encoded data
-            tokenAmounts: new Client.EVMTokenAmount[](0), // Empty array indicating no tokens are being sent
-            extraArgs: Client._argsToBytes(
-                // Additional arguments, setting gas limit
-                Client.EVMExtraArgsV1({gasLimit: 1_000_000})
-            ),
-            // Set the feeToken  address, indicating LINK will be used for fees
-            feeToken: address(s_linkToken)
-        });
-
-        // Get the fee required to send the message
-        IRouterClient router = IRouterClient(this.getRouter());
-        uint256 fees = router.getFee(destinationChainSelector, evm2AnyMessage);
-        return fees;
+    // get ChainId from active node, only for frontend, no impact in contract
+    function getChainIdFromActiveNode() external view returns (uint64) {
+        return validNodes[activeNode].chainCCIPid;
     }
 }

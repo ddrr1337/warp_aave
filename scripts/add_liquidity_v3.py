@@ -1,13 +1,16 @@
-from brownie import (
-    MasterNode,
-    Node,
-    config,
-    network,
-    interface,
-)
+from brownie import MasterNode, Node, config, network, interface, UniswapV3Liquidity
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 from datetime import datetime
 import math
+
+
+def deploy_add_liquidity():
+    deploy = UniswapV3Liquidity.deploy(
+        config["networks"][network.show_active()].get("usdc_circle_token"),
+        config["networks"][network.show_active()].get("weth"),
+        config["networks"][network.show_active()].get("non_fungible_position_manager"),
+        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
+    )
 
 
 def calculate_sqrtPriceX96(price):
@@ -37,7 +40,7 @@ def withdraw_eth(account, amount):
     tx = weth.withdraw(amount, {"from": account, "gas_price": get_gas_price() * 1.5})
 
 
-def add_liquidity(account, amount_usdc, amount_weth, pool_fee):
+def add_liquidity_old(account, amount_usdc, amount_weth, pool_fee):
 
     contract_ntf_manager = interface.INonfungiblePositionManager(
         config["networks"][network.show_active()].get("non_fungible_position_manager")
@@ -60,13 +63,13 @@ def add_liquidity(account, amount_usdc, amount_weth, pool_fee):
     # add liquidity
     tx = contract_ntf_manager.mint(
         [
-            config["networks"][network.show_active()].get("weth"),
             config["networks"][network.show_active()].get("usdc_circle_token"),
+            config["networks"][network.show_active()].get("weth"),
             pool_fee,
             -887220,
             887220,
-            amount_weth,
             amount_usdc,
+            amount_weth,
             0,
             0,
             account.address,
@@ -164,32 +167,97 @@ def positions(tokenId):
 
 
 def initialize():
-    contract = interface.IUniswapV2Pair("0x35E5FB5a1bC92cEd31Ad2C1A4ab2eD6f854349a0")
+    contract = interface.IUniswapV3Pool("0x35E5FB5a1bC92cEd31Ad2C1A4ab2eD6f854349a0")
     start = contract.initialize(
         4942937765421867558197527,
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
 
 
-def get_token():
-    contract = interface.IUniswapV2Pair("0x35E5FB5a1bC92cEd31Ad2C1A4ab2eD6f854349a0")
-    token0 = contract.token1()
-    print("slot0", token0)
+def get_pool_data():
+    contract = interface.IUniswapV3Pool("0x94bfc0574FF48E92cE43d495376C477B1d0EEeC0")
+    print("Token0: ", contract.token0())
+    print("Token1: ", contract.token1())
+    print("slot0: ", contract.slot0())
+    print("fee: ", contract.fee())
+    print("liquidity: ", contract.liquidity())
+
+
+def balance_WETH(account):
+    contract = interface.IERC20(config["networks"][network.show_active()].get("weth"))
+    balance = contract.balanceOf(account)
+    print("WETH balance", balance, balance / 10**18)
+
+
+def add_liquidity(amount_usdc, amount_weth, account):
+    approve_erc20(
+        UniswapV3Liquidity[-1].address,
+        amount_usdc * 10,
+        config["networks"][network.show_active()].get("usdc_circle_token"),
+        account,
+    )
+
+    approve_erc20(
+        UniswapV3Liquidity[-1].address,
+        amount_weth * 10,
+        config["networks"][network.show_active()].get("weth"),
+        account,
+    )
+    contract = UniswapV3Liquidity[-1]
+    a_liquidity = contract.mintNewPosition(
+        amount_usdc,
+        amount_weth,
+        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
+    )
+
+
+# 707 tokenId
+def increase_liquidity(tokenId, amountToken0, amountToken1, account):
+    approve_erc20(
+        UniswapV3Liquidity[-1].address,
+        amountToken0 * 2,
+        config["networks"][network.show_active()].get("usdc_circle_token"),
+        account,
+    )
+
+    approve_erc20(
+        UniswapV3Liquidity[-1].address,
+        amountToken1 * 2,
+        config["networks"][network.show_active()].get("weth"),
+        account,
+    )
+    contract = UniswapV3Liquidity[-1]
+    more_liquidity = contract.increaseLiquidityCurrentRange(
+        tokenId,
+        amountToken0,
+        amountToken1,
+        {"from": account, "gas_price": get_gas_price() * 1.5},
+    )
+
+
+def positions(tokenId):
+    contract_ntf_manager = interface.INonfungiblePositionManager(
+        config["networks"][network.show_active()].get("non_fungible_position_manager")
+    )
+    position = contract_ntf_manager.positions(tokenId)
+    print(position)
 
 
 def main():
+    # deploy_add_liquidity()
 
-    # deposit_eth_to_get_weth(get_account(account="main"), 0.01 * 10**18)
+    # deposit_eth_to_get_weth(get_account(account="main"), 0.05 * 10**18)
     # withdraw_eth(get_account(account="main"), 0.5 * 10**18)
     """erc_balance(
         config["networks"][network.show_active()].get("weth"),
         get_account(account="main"),
         18,
     )"""
-    """ add_liquidity(
-        get_account(account="main"), 20 * 10**6, 0.0051948051948052 * 10**18, 10000
-    ) """
-    get_token()
+    add_liquidity(1 * 10**6, 0.01 * 10**18, get_account(account="main"))
+    # increase_liquidity(707, 1 * 10**6, 0.01 * 10**18, get_account(account="main"))
+    # positions(707)
+    # balance_WETH(get_account(account="main"))
+    # get_pool_data()
     # print(datetime.now().timestamp() + 500)
     # initialize()
     # positions(50)

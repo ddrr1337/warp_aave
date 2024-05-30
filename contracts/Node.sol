@@ -111,7 +111,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     function isAllowedAddress(
         address _nodeOrMaster
     ) internal view returns (bool) {
-        for (uint8 i = 0; i < allowedNodes.length; i++) {
+        for (uint16 i = 0; i < allowedNodes.length; i++) {
             if (allowedNodes[i] == _nodeOrMaster) {
                 return true;
             }
@@ -289,40 +289,50 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         resumeOperations = true;
 
         _assetsAllocationDeposit(POOL_ADDRESS_PROVIDER_ADDRESS, USDC_ADDRESS);
-        /*         aWrpTotalSupplyNodeSide = _aWrpSupplyFromOldNode;
+        aWrpTotalSupplyNodeSide = _aWrpSupplyFromOldNode;
 
         uint8 commandResumeOperations = 1;
         isNodeActive = true;
 
-        bytes memory data = abi.encode(commandResumeOperations); */
+        bytes memory data = abi.encode(commandResumeOperations);
 
-        /*         _sendMessage(
-            MASTER_CONTRACT_CHAIN_ID,
-            MASTER_CONTRACT_ADDRESS,
-            data,
-            address(0),
-            0,
-            true
-        ); */
+        if (NODE_CONTRACT_CHAIN_ID == MASTER_CONTRACT_CHAIN_ID) {
+            IMasterNode(MASTER_CONTRACT_ADDRESS)
+                ._resmumeOperationsFromSameChain();
+        } else {
+            _sendMessage(
+                MASTER_CONTRACT_CHAIN_ID,
+                MASTER_CONTRACT_ADDRESS,
+                data,
+                address(0),
+                0,
+                true
+            );
+        }
     }
-    /////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////
     ////////////////////////  INCOMING MESAGE HANDLER  /////////////////////
-    ///////////////////////////////////////////////////////////////////////
-    ///////////////////////////////////////////////////////////////////////
+    /////////////////  THIS FUNC IS CALLED BY CHAINLINK  //////////////////
+    //////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
     function _ccipReceive(
-        Client.Any2EVMMessage memory any2EvmMessage
-    ) internal override {
-        uint8 command = _internalCommandRouter(any2EvmMessage);
+        Client.Any2EVMMessage memory _any2EvmMessage
+    )
+        internal
+        override
+        onlyAllowedAddresses(abi.decode(_any2EvmMessage.sender, (address)))
+    {
+        uint8 command = _internalCommandRouter(_any2EvmMessage);
         commandTESTER = command;
 
         if (command == 0) {
-            _withdraw(any2EvmMessage);
+            _withdraw(_any2EvmMessage);
         } else if (command == 1) {
-            _warpAssets(any2EvmMessage);
+            _warpAssets(_any2EvmMessage);
         } else if (command == 2) {
-            _allocateAssetsAndSetAWRPSupply(any2EvmMessage);
+            _allocateAssetsAndSetAWRPSupply(_any2EvmMessage);
         } else {
             revert("invalid command");
         }
@@ -333,8 +343,6 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     //////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////
 
-    /// ADD MODIFIERS!! ///
-
     function _sendMessage(
         uint64 _destinationChainSelector,
         address _receiver,
@@ -342,7 +350,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         address _token,
         uint256 _amount,
         bool isPayingNative
-    ) internal returns (bytes32 messageId) {
+    ) internal onlyAllowedAddresses(_receiver) returns (bytes32 messageId) {
         // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
         // address(linkToken) means fees are paid in LINK
         uint256 newAmount;
@@ -421,6 +429,14 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             messageId = routerCCIP.ccipSend(
                 _destinationChainSelector,
                 evm2AnyMessage
+            );
+        }
+
+        uint256 usdcBalance = IERC20(USDC_ADDRESS).balanceOf(address(this));
+        if (usdcBalance > 0) {
+            _assetsAllocationDeposit(
+                POOL_ADDRESS_PROVIDER_ADDRESS,
+                USDC_ADDRESS
             );
         }
 
@@ -511,14 +527,21 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         IERC20(USDC_ADDRESS).approve(pool, amount);
         IPool(pool).deposit(USDC_ADDRESS, amount, address(this), 0);
 
-        _sendMessage(
-            MASTER_CONTRACT_CHAIN_ID,
-            MASTER_CONTRACT_ADDRESS,
-            data,
-            address(0),
-            0,
-            false
-        );
+        if (NODE_CONTRACT_CHAIN_ID == MASTER_CONTRACT_CHAIN_ID) {
+            IMasterNode(MASTER_CONTRACT_ADDRESS).aWarpTokenMinterFromSameChain(
+                msg.sender,
+                shares
+            );
+        } else {
+            _sendMessage(
+                MASTER_CONTRACT_CHAIN_ID,
+                MASTER_CONTRACT_ADDRESS,
+                data,
+                address(0),
+                0,
+                false
+            );
+        }
     }
 
     /////////////////////////////////////////////////////////////////////////
@@ -609,8 +632,17 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     /////////////////////////////   UTILS   ////////////////////////////////
     ///////////////////////////////////////////////////////////////////////
 
-    function _getNativeFees(uint256 fees) public returns (uint256) {
+    function _getNativeFees(uint256 fees) internal returns (uint256) {
         // Approve the router to spend USDC.
+        uint256 ausdcBalance = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
+        if (ausdcBalance > 0) {
+            _assetsAllocationWithdraw(
+                POOL_ADDRESS_PROVIDER_ADDRESS,
+                aUSDC_ADDRESS,
+                USDC_ADDRESS
+            );
+        }
+
         uint256 usdcBalance = IERC20(USDC_ADDRESS).balanceOf(address(this));
         IERC20(USDC_ADDRESS).approve(address(iSwapRouter02), usdcBalance);
 
@@ -632,21 +664,15 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         return amountIn;
     }
 
-    // ONLY FOR TESTING TO RECOVER FUNDS ON EVERY ITERATION
+    //frontend stuff, no impcat in contract
+    function calculateSharesValue(
+        uint256 shares
+    ) external view returns (uint256) {
+        uint256 totalAusdc = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
 
-    function testerRecoverFunds() external onlyOwner {
-        uint256 balanceAusd = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
-        if (balanceAusd > 0) {
-            address pool = _getPool(POOL_ADDRESS_PROVIDER_ADDRESS);
-            IPool(pool).withdraw(USDC_ADDRESS, balanceAusd, msg.sender);
-        }
-        uint256 balance = IERC20(USDC_ADDRESS).balanceOf(address(this));
-        IERC20(USDC_ADDRESS).transfer(msg.sender, balance);
-        uint256 balanceWETH = IERC20(WETH_ADDRESS).balanceOf(address(this));
-        IERC20(WETH_ADDRESS).transfer((msg.sender), balanceWETH);
-        uint256 ethBalance = address(this).balance;
-        msg.sender.call{value: ethBalance}("");
-        uint256 linkBalance = s_linkToken.balanceOf(address(this));
-        s_linkToken.transfer(msg.sender, linkBalance);
+        uint256 amount = ((shares * 10 ** 18) * totalAusdc) /
+            aWrpTotalSupplyNodeSide;
+
+        return amount / 10 ** 18;
     }
 }

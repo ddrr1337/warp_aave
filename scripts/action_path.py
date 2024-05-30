@@ -6,13 +6,11 @@ from brownie import (
     interface,
 )
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
-from eth_abi import encode
-from datetime import datetime
 
 
-MASTER_CONTRACT_ARBITRUM = "0xeEBa0f50f5446cC2Afa0589c453b578ff93AEEdA"
-OPTIMISTIC_NODE = "0xe61141f515E3e422A8a8485483bBc4481875F079"
-BASE_NODE = "0x03A45a437f5632979b7419177212297843756875"
+MASTER_CONTRACT_ARBITRUM = "0x97dB38e7406C71D193849d5Ccf92193Df4B339FA"
+OPTIMISTIC_NODE = "0x98b2cBA4706e6109dB5c1889075d6cCD3B9FB2E6"
+BASE_NODE = "0x2550f1c44bA0f80e6EA97FEa5aF51cBF28755193"
 
 
 def deploy_master():
@@ -196,9 +194,9 @@ def deposit_node(amount, account):
     )
 
 
-def tester_amount():
+def tester_var():
     contract = Node[-1]
-    test = contract.tester_amount_in()
+    test = contract.isNodeActive()
     print(test)
 
 
@@ -218,8 +216,8 @@ def main():
         False,
     )"""  # called in arbitrum
     # set_allowed_nodes_in_all_nodes()  # call in optimistic (first active node)
-    # deposit_node(3 * 10**6, get_account(account="main"))
-    # tester_amount()
+    deposit_node(3 * 10**6, get_account(account="main"))
+    # tester_var()
     # call on optimistic
     # get_shares(get_account(account="main"))
     """ withdraw(
@@ -231,12 +229,12 @@ def main():
         config["networks"]["base_sepolia"].get("BC_identifier"),
         BASE_NODE,
         get_account(account="main"),
-    )  # called on arbitrum
- """
-    warp_assets_optimistic(
+    )  """  # called on arbitrum
+
+    """ warp_assets_optimistic(
         config["networks"]["base_sepolia"].get("BC_identifier"),
         BASE_NODE,
-    )
+    ) """
     # swap()
 
     print()

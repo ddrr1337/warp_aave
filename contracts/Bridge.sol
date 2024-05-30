@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Bridge is Ownable {
     address public usdcAddress;
-    address public tokenMessengerAddress; //arbirtum_side
+    address public tokenMessengerAddress;
 
     constructor(address _usdcAddress, address _tokenMessengerAddress) {
         usdcAddress = _usdcAddress;

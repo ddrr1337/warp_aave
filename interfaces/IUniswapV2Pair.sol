@@ -77,19 +77,5 @@ interface IUniswapV2Pair {
     function skim(address to) external;
     function sync() external;
 
-    //function initialize(address, address) external;
-    function initialize(uint160) external;
-
-    function slot0()
-        external
-        view
-        returns (
-            uint160 sqrtPriceX96,
-            int24 tick,
-            uint16 observationIndex,
-            uint16 observationCardinality,
-            uint16 observationCardinalityNext,
-            uint8 feeProtocol,
-            bool unlocked
-        );
+    function initialize(address, address) external;
 }
