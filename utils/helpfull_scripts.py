@@ -1,6 +1,5 @@
 from brownie import accounts, network, config
 from brownie import interface, config, network
-from web3 import Web3
 from brownie import web3
 import math
 
@@ -67,10 +66,9 @@ def approve_erc20(spender, amount, erc20_address, account):
 
 
 def from_sqrtPriceX96_to_price(sqrtPriceX96):
-    # Calcula la raíz cuadrada de n
+
     sqrt_n = math.isqrt(sqrtPriceX96)
 
-    # Multiplica por 2^96
     result = sqrt_n / 2**96
 
     return result

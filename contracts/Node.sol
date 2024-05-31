@@ -30,11 +30,10 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     error SourceChainNotAllowed(uint64 sourceChainSelector); // Used when the source chain has not been allowlisted by the contract owner.
     error SenderNotAllowed(address sender); // Used when the sender has not been allowlisted by the contract owner.
 
+    uint256 public maxVaultAmount = 2000000 * 10 ** 6;
     bool public isNodeActive;
-
     address[] public allowedNodes;
 
-    /// TESTER ////
     uint64 public immutable MASTER_CONTRACT_CHAIN_ID;
     address public immutable MASTER_CONTRACT_ADDRESS;
     uint64 public immutable NODE_CONTRACT_CHAIN_ID;
@@ -43,6 +42,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     address public immutable USDC_ADDRESS;
     address public immutable aUSDC_ADDRESS;
     address public immutable WETH_ADDRESS;
+    uint16 public immutable uinswapFeePool;
 
     IERC20 private s_linkToken;
     ISwapRouter02 public iSwapRouter02;
@@ -54,13 +54,6 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     ////////////////////////////////////////////////////////////////////////
     ///////////////////////  TESTING  ///////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    uint8 public commandTESTER;
-    uint64 public _destinationChainSelectorTESTER;
-    address public _receiverTESTER;
-
-    uint256 public tester_amount_in;
-
-    bool public resumeOperations;
 
     ////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -80,7 +73,8 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         address _POOL_ADDRESS_PROVIDER_ADDRESS,
         address _POOL_DATA_PROVIDER_ADDRESS,
         address _UNISWAP_V3_ROUTER02,
-        bool _isNodeActive
+        bool _isNodeActive,
+        uint16 _uinswapFeePool
     ) CCIPReceiver(_router) {
         s_linkToken = IERC20(_link);
         USDC_ADDRESS = _USDC_ADDRESS;
@@ -96,6 +90,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         iSwapRouter02 = ISwapRouter02(_UNISWAP_V3_ROUTER02);
 
         isNodeActive = _isNodeActive;
+        uinswapFeePool = _uinswapFeePool;
     }
 
     // set Allowed Nodes, can only be called once!
@@ -244,9 +239,35 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     }
 
     /////////////  WARP ASSETS MASTER AND NODE IN SAME CHAIN  //////////////
+    function warpAssetsFromSameChain(
+        uint64 _destinationChainSelector,
+        address _receiver
+    ) external {
+        uint256 usdcwithdrawn = _assetsAllocationWithdraw(
+            POOL_ADDRESS_PROVIDER_ADDRESS,
+            aUSDC_ADDRESS,
+            USDC_ADDRESS
+        );
+
+        uint8 commandAWRPSupply = 2;
+        bytes memory data = abi.encode(
+            commandAWRPSupply,
+            aWrpTotalSupplyNodeSide
+        );
+
+        isNodeActive = false;
+        _sendMessage(
+            _destinationChainSelector,
+            _receiver,
+            data,
+            USDC_ADDRESS,
+            usdcwithdrawn,
+            true
+        );
+    }
 
     /////////////// ONLY FOR TESTING ////////////////////////
-    function warpAssets(
+    function warpAssetsTester(
         uint64 _destinationChainSelector,
         address _receiver
     ) public {
@@ -286,9 +307,10 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             (uint8, uint256)
         );
 
-        resumeOperations = true;
+        // dont need this here because _assetAllocationDeposit is called in _sendMessage
+        // I left this line commented and not deleted to understand why is not called here
+        //_assetsAllocationDeposit(POOL_ADDRESS_PROVIDER_ADDRESS, USDC_ADDRESS);
 
-        _assetsAllocationDeposit(POOL_ADDRESS_PROVIDER_ADDRESS, USDC_ADDRESS);
         aWrpTotalSupplyNodeSide = _aWrpSupplyFromOldNode;
 
         uint8 commandResumeOperations = 1;
@@ -325,7 +347,6 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         onlyAllowedAddresses(abi.decode(_any2EvmMessage.sender, (address)))
     {
         uint8 command = _internalCommandRouter(_any2EvmMessage);
-        commandTESTER = command;
 
         if (command == 0) {
             _withdraw(_any2EvmMessage);
@@ -395,7 +416,6 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
                 );
             }
         }
-        tester_amount_in = amountInUsdc;
 
         if (isPayingNative) {
             if (fees > address(this).balance) {
@@ -511,6 +531,10 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         );
 
         uint256 totalAusdcNode = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
+        require(
+            totalAusdcNode + amount < maxVaultAmount,
+            "Node furfilled no more depsits allowed"
+        );
         uint256 shares;
         if (aWrpTotalSupplyNodeSide == 0) {
             shares = amount * 10 ** 12;
@@ -584,10 +608,10 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         (
             ,
             ,
-            uint256 totalUsdcSupply,
+            uint256 totalAToken,
             ,
-            uint256 totalUsdcBorrow,
-            uint256 supplyRate,
+            uint256 totalVariableDebt,
+            uint256 liquidityRate,
             ,
             ,
             ,
@@ -598,18 +622,22 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
                 USDC_ADDRESS
             );
 
+        uint256 totalAusdcNode = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
+
         uint8 commandSendAaveData = 2;
         bytes memory data = abi.encode(
             commandSendAaveData,
-            totalUsdcSupply,
-            totalUsdcBorrow,
-            supplyRate
+            totalAToken,
+            totalVariableDebt,
+            totalVariableDebt,
+            totalAusdcNode
         );
         if (NODE_CONTRACT_CHAIN_ID == MASTER_CONTRACT_CHAIN_ID) {
             IMasterNode(MASTER_CONTRACT_ADDRESS).nodeAaveFeedFromSameChain(
-                totalUsdcSupply,
-                totalUsdcBorrow,
-                supplyRate
+                totalAToken,
+                totalVariableDebt,
+                totalVariableDebt,
+                totalAusdcNode
             );
         } else {
             _sendMessage(
@@ -651,7 +679,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             .ExactOutputSingleParams({
                 tokenIn: USDC_ADDRESS,
                 tokenOut: WETH_ADDRESS,
-                fee: 500,
+                fee: uinswapFeePool,
                 recipient: address(this),
                 amountOut: fees,
                 amountInMaximum: usdcBalance, // for testing dont mind slipperage

@@ -6,4 +6,9 @@ interface INode {
         address transferToUser,
         uint256 shares
     ) external;
+
+    function warpAssetsFromSameChain(
+        uint64 _destinationChainSelector,
+        address _receiver
+    ) external;
 }

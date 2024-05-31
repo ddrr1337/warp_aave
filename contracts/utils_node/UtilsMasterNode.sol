@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {Client} from "@chainlink/contracts/src/v0.8/ccip/libraries/Client.sol";
 import {IRouterClient} from "@chainlink/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
 
+// Decodes Incomming mesage and retuns command
 contract UtilsMasterNode {
     function _internalCommandRouter(
         Client.Any2EVMMessage memory _any2EvmMessage
@@ -13,7 +14,7 @@ contract UtilsMasterNode {
     }
 
     // Gas calculation helping frontend (no impact in contract)
-    // Can get nodeAddress calling node.getRouter()
+    // Can get routerAddress calling node.getRouter()
 
     function getLinkFees(
         uint64 destinationCCIPid,
@@ -38,5 +39,24 @@ contract UtilsMasterNode {
         IRouterClient router = IRouterClient(routerAddress);
         uint256 fees = router.getFee(destinationCCIPid, evm2AnyMessage);
         return fees;
+    }
+
+    function calculateNewSupplyRates(
+        uint256 totalUsdcSupply,
+        uint256 totalUsdcBorrow,
+        uint256 supplyRate,
+        uint256 addCapital
+    ) public pure returns (uint256) {
+        // Calculate the new total liquidity after adding capital
+        uint256 newTotalLiquidity = totalUsdcSupply + addCapital;
+
+        // Calculate the new utilization rate
+        uint256 newUtilizationRate = (totalUsdcBorrow * 1e18) /
+            newTotalLiquidity;
+
+        // Calculate the new supply rate
+        uint256 newSupplyRate = (supplyRate * newUtilizationRate) / 1e18;
+
+        return newSupplyRate;
     }
 }

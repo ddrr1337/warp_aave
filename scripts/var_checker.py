@@ -90,9 +90,18 @@ def calculateWithdraw():
     print(result)
 
 
+def ausdc_vault_balance():
+    contract = interface.IERC20(
+        config["networks"][network.show_active()].get("ausdc_circle_token")
+    )
+    balance = contract.balanceOf(Node[-1].address)
+    print("Balance aUSDC", balance, balance / 10**6)
+
+
 def main():
 
-    # aWrp_total_supply_node()  # call on Nodes
+    ausdc_vault_balance()
+    aWrp_total_supply_node()  # call on Nodes
     # aWrp_total_supply_master()  # call on naster
     # aWRP_balance(get_account(account="main"))  # call on naster
     # get_nodes_data()
@@ -100,7 +109,7 @@ def main():
     # get_active_nmodes_from_nodes(1)
     # get_active_node()
     # get_chain_CCIPidActiveNode()
-    calculateWithdraw()
+    # calculateWithdraw()
 
     print()
     print()

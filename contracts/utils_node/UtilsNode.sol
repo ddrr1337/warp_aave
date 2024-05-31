@@ -9,19 +9,21 @@ import {Client} from "@chainlink/contracts/src/v0.8/ccip/libraries/Client.sol";
 import {IRouterClient} from "@chainlink/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
 
 contract UtilsNode {
+    // Decodes Incomming mesage and retuns command
     function _internalCommandRouter(
         Client.Any2EVMMessage memory _any2EvmMessage
     ) internal returns (uint8) {
         uint8 command = abi.decode(_any2EvmMessage.data, (uint8));
         return command;
     }
-
+    // get aave pool
     function _getPool(
         address poolAddressProvider
     ) internal view returns (address) {
         return IPoolAddressesProvider(poolAddressProvider).getPool();
     }
 
+    // all ausdc to usdc
     function _assetsAllocationWithdraw(
         address poolAddressProvider,
         address aUSDCAddress,
@@ -37,6 +39,7 @@ contract UtilsNode {
             IPool(pool).withdraw(usdcAddress, balanceAusdcNode, address(this));
     }
 
+    // all usdc to ausdc
     function _assetsAllocationDeposit(
         address poolAddressProvider,
         address usdcAddress
@@ -49,7 +52,7 @@ contract UtilsNode {
     }
 
     // Gas calculation helping frontend (no impact in contract)
-    // Can get nodeAddress calling node.getRouter()
+    // Can get routerAddress calling node.getRouter()
 
     function getLinkFees(
         uint64 destinationCCIPid,
@@ -76,7 +79,7 @@ contract UtilsNode {
         return fees;
     }
 
-    // frontend quet curent AAVE suply on this node (no impact in contract)
+    // frontend quet curent AAVE supply on this node (no impact in contract)
     function getAaveSupplyRate(
         address poolDAtaProvider,
         address usdcAddress

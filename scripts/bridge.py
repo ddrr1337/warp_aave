@@ -45,14 +45,6 @@ def send_to_bridge(amount, destinationChainID, account):
     )
 
 
-def allowance(account):
-    contract = interface.IERC20(
-        config["networks"][network.show_active()].get("usdc_circle_token")
-    )
-    allow = contract.allowance(account, Bridge[-1])
-    print(allow)
-
-
 def multiple_deploy(account):
     deploy_bridge(account)
     print(f"Bridge deployed in {network.show_active()}")
@@ -94,19 +86,16 @@ def claim_assets_from_bridge(account):
 
 def main():
     # deploy_bridge(get_account(account="main"))
-    # multiple_deploy()
-    collect_fees(get_account(account="main"))
-    # claim_assets_from_bridge(get_account(account="main"))
-
-    # allowance(get_account(account="main").address)
+    # multiple_deploy(get_account(account='main')) # call first on sepolia
 
     """send_to_bridge(
         1.1 * 10**6,
         config["networks"]["arbitrum_sepolia"].get("circle_chain_id"),
         get_account(account="main"),
     )"""
+    # claim_assets_from_bridge(get_account(account="main"))
+    # collect_fees(get_account(account="main"))
 
     print("-------------------------------------------------------")
-    # print("Bridge Contract", Bridge[-1].address)
 
-    print("-------------------------------------------------------")
+    print("------------------  END SCRIPT  -------------------------")

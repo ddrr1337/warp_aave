@@ -25,9 +25,14 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
     error SenderNotAllowed(address sender); // Used when the sender has not been allowlisted by the contract owner.
     error InvalidReceiverAddress(); // Used when the receiver address is 0.
 
-    LinkTokenInterface private s_linkToken;
+    bool public isProtocolInTestMode = true;
 
+    LinkTokenInterface private s_linkToken;
     uint64 public immutable MASTER_CONTRACT_CHAIN_ID;
+    bool public allowMoreNodes = true;
+    address public lastActiveNode;
+    address public activeNode;
+    uint256 public lastTimeWarped;
 
     struct ValidNodes {
         bool isValidNode;
@@ -37,16 +42,11 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         uint256 totalUsdcSupply;
         uint256 totalUsdcBorrow;
         uint256 supplyRate;
+        uint256 totalAusdcNode;
     }
 
     mapping(address => ValidNodes) public validNodes;
 
-    bool public allowMoreNodes = true;
-    address public activeNode;
-
-    /// @notice Constructor initializes the contract with the router address.
-    /// @param _router The address of the router contract.
-    /// @param _link The address of the link contract.
     constructor(
         address _router,
         address _link,
@@ -86,6 +86,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         validNodes[nodeAddress].chainCCIPid = chainCCIPid;
 
         if (isActiveNode) {
+            lastActiveNode = nodeAddress;
             activeNode = nodeAddress;
         }
     }
@@ -125,6 +126,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
     ) internal {
         validNodes[abi.decode(_any2EvmMessage.sender, (address))]
             .isActiveNode = true;
+
         activeNode = abi.decode(_any2EvmMessage.sender, (address));
     }
 
@@ -151,10 +153,11 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
             ,
             uint256 totalUsdcSupply,
             uint256 totalUsdcBorrow,
-            uint256 supplyRate
+            uint256 supplyRate,
+            uint256 totalAusdcNode
         ) = abi.decode(
                 _any2EvmMessage.data,
-                (uint8, uint256, uint256, uint256)
+                (uint8, uint256, uint256, uint256, uint256)
             );
 
         validNodes[abi.decode(_any2EvmMessage.sender, (address))]
@@ -165,6 +168,8 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
             .totalUsdcBorrow = totalUsdcBorrow;
         validNodes[abi.decode(_any2EvmMessage.sender, (address))]
             .supplyRate = supplyRate;
+        validNodes[abi.decode(_any2EvmMessage.sender, (address))]
+            .totalAusdcNode = totalAusdcNode;
     }
 
     ////////////////  DATA AAVE, MASTER AND NODE IN SAME CHAIN  //////////////
@@ -172,12 +177,14 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
     function nodeAaveFeedFromSameChain(
         uint256 totalUsdcSupply,
         uint256 totalUsdcBorrow,
-        uint256 supplyRate
+        uint256 supplyRate,
+        uint256 totalAusdcNode
     ) external masterAndNodeInSameChain onlyValidNodes(msg.sender) {
         validNodes[msg.sender].lastDataFromAave = block.timestamp;
         validNodes[msg.sender].totalUsdcSupply = totalUsdcSupply;
         validNodes[msg.sender].totalUsdcBorrow = totalUsdcBorrow;
         validNodes[msg.sender].supplyRate = supplyRate;
+        validNodes[msg.sender].totalAusdcNode = totalAusdcNode;
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -194,11 +201,6 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         override
         onlyValidNodes(abi.decode(_any2EvmMessage.sender, (address)))
     {
-        require(
-            validNodes[abi.decode(_any2EvmMessage.sender, (address))]
-                .isValidNode,
-            "Incoming Message not from a valid node"
-        );
         uint8 command = _internalCommandRouter(_any2EvmMessage);
         if (command == 0) {
             _aWarpTokenMinter(_any2EvmMessage);
@@ -292,6 +294,13 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         uint64 _destinationCCIPid,
         address _destinationNodeAddress
     ) external {
+        // in test mode no requirements to warp assets
+        if (!isProtocolInTestMode) {
+            require(
+                checkApprovedWarp(activeNode, _destinationNodeAddress),
+                "Condition to warp not met"
+            );
+        }
         uint8 commandWarpAssets = 1;
 
         bytes memory data = abi.encode(
@@ -301,8 +310,18 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         );
         validNodes[activeNode].isActiveNode = false;
 
-        _sendMessage(validNodes[activeNode].chainCCIPid, activeNode, data);
+        if (validNodes[activeNode].chainCCIPid == MASTER_CONTRACT_CHAIN_ID) {
+            INode(activeNode).warpAssetsFromSameChain(
+                _destinationCCIPid,
+                _destinationNodeAddress
+            );
+        } else {
+            _sendMessage(validNodes[activeNode].chainCCIPid, activeNode, data);
+        }
+
+        lastActiveNode = activeNode;
         activeNode = address(0);
+        lastTimeWarped = block.timestamp;
     }
 
     /////////////////////////////////////////////////////////////////////////
@@ -336,7 +355,15 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         address destinationNode
     ) public view returns (bool) {
         //require 24 after last warp
+        uint256 newSupplyRate = calculateNewSupplyRates(
+            validNodes[destinationNode].totalUsdcSupply,
+            validNodes[destinationNode].totalUsdcBorrow,
+            validNodes[destinationNode].supplyRate,
+            validNodes[destinationNode].totalAusdcNode
+        );
+
         return
+            lastTimeWarped + (3600 * 24) < block.timestamp &&
             validNodes[_activeNode].isActiveNode == true &&
             validNodes[_activeNode].lastDataFromAave > 0 &&
             validNodes[destinationNode].lastDataFromAave > 0 &&
@@ -346,12 +373,15 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
             validNodes[destinationNode].isValidNode == true &&
             validNodes[destinationNode].isActiveNode == false &&
             validNodes[_activeNode].supplyRate > 0 &&
-            validNodes[_activeNode].supplyRate <
-            validNodes[destinationNode].supplyRate;
+            validNodes[_activeNode].supplyRate < newSupplyRate;
     }
 
-    // get ChainId from active node, only for frontend, no impact in contract
+    // get ChainId from active node or last active node in case vault is warping, only for frontend, no impact in contract
     function getChainIdFromActiveNode() external view returns (uint64) {
+        if (activeNode == address(0)) {
+            return validNodes[lastActiveNode].chainCCIPid;
+        }
+
         return validNodes[activeNode].chainCCIPid;
     }
 }

@@ -10,7 +10,8 @@ interface IMasterNode {
     function nodeAaveFeedFromSameChain(
         uint256 totalUsdcSupply,
         uint256 totalUsdcBorrow,
-        uint256 supplyRate
+        uint256 supplyRate,
+        uint256 totalAusdcNode
     ) external;
 
     function _resmumeOperationsFromSameChain() external;

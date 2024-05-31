@@ -1,16 +1,13 @@
-from brownie import (
-    MasterNode,
-    Node,
-    config,
-    network,
-    interface,
-)
+from brownie import MasterNode, Node, config, network, interface, Tester
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
+from brownie.project.flattener import Flattener
 
-MASTER_CONTRACT_ARBITRUM = "0x97dB38e7406C71D193849d5Ccf92193Df4B339FA"
-OPTIMISTIC_NODE = "0x98b2cBA4706e6109dB5c1889075d6cCD3B9FB2E6"
-BASE_NODE = "0x2550f1c44bA0f80e6EA97FEa5aF51cBF28755193"
+
+MASTER_CONTRACT_ARBITRUM = "0x6b8E782bE5cFB853920762631b0aE3053B14a1da"
+OPTIMISTIC_NODE = "0xb502b8B0a67f3346A7bfd3f15BA02962a9560822"
+BASE_NODE = "0xc64177A5521B2C5019c315c277522ECE93D8E953"
+ARBITRUM_NODE = "0x52E0198455f5432EDDb69a2E9b2ae7F24a0729E5"
 
 
 def deploy_master():
@@ -19,6 +16,7 @@ def deploy_master():
         config["networks"][network.show_active()].get("link_token"),
         config["networks"][network.show_active()].get("BC_identifier"),
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
+        publish_source=config["networks"][network.show_active()].get("verify"),
     )
 
 
@@ -48,19 +46,9 @@ def deploy_node():
         config["networks"][network.show_active()].get("aave_data_provider"),
         config["networks"][network.show_active()].get("uniswap_V3_router"),
         is_node_active,
+        config["networks"][network.show_active()].get("uniswap_pool_fee"),
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
-    # get_account(account="main").transfer(Node[-1].address, amountTestingETH)
-
-    """ usdc_instace = interface.IERC20(
-        config["networks"][network.show_active()].get("usdc_circle_token")
-    )
-    transfer = usdc_instace.transfer(
-        Node[-1].address,
-        2 * 10**6,
-        {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
-    )
- """
 
 
 def approve_link(spender, amount, account):
@@ -94,7 +82,7 @@ def withdraw(shares, account):
 def set_allowed_nodes_in_nodes():
     contract = Node[-1]
     set_nodes = contract.setAllowedNodes(
-        [OPTIMISTIC_NODE, BASE_NODE],
+        [OPTIMISTIC_NODE, BASE_NODE, ARBITRUM_NODE],
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
 
@@ -103,14 +91,19 @@ def set_allowed_nodes_in_all_nodes():
     set_allowed_nodes_in_nodes()
     print()
     print(
-        "------------------  APPROVED ADDRESSES ON ARIBTRIUM NODE  --------------------"
+        "------------------  APPROVED ADDRESSES ON OPTIMISTIC NODE  --------------------"
     )
     network.disconnect()
     network.connect("base_sepolia")
     set_allowed_nodes_in_nodes()
     print()
+    print("------------------  APPROVED ADDRESSES ON BASE NODE  --------------------")
+    network.disconnect()
+    network.connect("arbitrum_sepolia")
+    set_allowed_nodes_in_nodes()
+    print()
     print(
-        "------------------  APPROVED ADDRESSES ON OPTIMISTIC NODE  --------------------"
+        "------------------  APPROVED ADDRESSES ON ARBITRUM NODE  --------------------"
     )
 
 
@@ -128,7 +121,7 @@ def warp_assets(destinationCCIPid, destinationNodeAddress, account):
 
 def warp_assets_optimistic(destinationCCIPid, destinationNodeAddress):
     contract = Node[-1]
-    warp_assets = contract.warpAssets(
+    warp_assets = contract.warpAssetsTester(
         destinationCCIPid,
         destinationNodeAddress,
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
@@ -196,13 +189,13 @@ def deposit_node(amount, account):
 
 def tester_var():
     contract = Node[-1]
-    test = contract.isNodeActive()
-    print(test)
+    test = contract.totalSupply()
+    print("test", test, test / 10**18)
 
 
 def main():
     # tester_recover_funds_both()
-    # deploy_master()  # deploy on arbitrum
+    deploy_master()  # deploy on arbitrum
     # deploy_node()
 
     """add_valid_node_on_master(
@@ -214,9 +207,14 @@ def main():
         BASE_NODE,
         config["networks"]["base_sepolia"].get("BC_identifier"),
         False,
+    )  # called in arbitrum
+    add_valid_node_on_master(
+        ARBITRUM_NODE,
+        config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
+        False,
     )"""  # called in arbitrum
     # set_allowed_nodes_in_all_nodes()  # call in optimistic (first active node)
-    deposit_node(3 * 10**6, get_account(account="main"))
+    # deposit_node(5 * 10**6, get_account(account="main"))  # called optimistic
     # tester_var()
     # call on optimistic
     # get_shares(get_account(account="main"))
@@ -227,13 +225,22 @@ def main():
 
     """ warp_assets(
         config["networks"]["base_sepolia"].get("BC_identifier"),
-        BASE_NODE,
+        "0xf8F04B1015fdCfDE4c41E5377Fe29388BF67e9e8",
+        get_account(account="main"),
+    ) """  # called on arbitrum
+    """ warp_assets(
+        config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
+        ARBITRUM_NODE,
         get_account(account="main"),
     )  """  # called on arbitrum
 
     """ warp_assets_optimistic(
         config["networks"]["base_sepolia"].get("BC_identifier"),
-        BASE_NODE,
+        "0xf8F04B1015fdCfDE4c41E5377Fe29388BF67e9e8",
+    ) """
+    """ warp_assets_optimistic(
+        config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
+        ARBITRUM_NODE,
     ) """
     # swap()
 

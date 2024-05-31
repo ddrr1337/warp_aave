@@ -246,14 +246,14 @@ def positions(tokenId):
 def main():
     # deploy_add_liquidity()
 
-    # deposit_eth_to_get_weth(get_account(account="main"), 0.05 * 10**18)
+    # deposit_eth_to_get_weth(get_account(account="main"), 0.1 * 10**18)
     # withdraw_eth(get_account(account="main"), 0.5 * 10**18)
     """erc_balance(
         config["networks"][network.show_active()].get("weth"),
         get_account(account="main"),
         18,
     )"""
-    add_liquidity(1 * 10**6, 0.01 * 10**18, get_account(account="main"))
+    add_liquidity(200 * 10**6, 0.0526 * 10**18, get_account(account="main"))
     # increase_liquidity(707, 1 * 10**6, 0.01 * 10**18, get_account(account="main"))
     # positions(707)
     # balance_WETH(get_account(account="main"))
