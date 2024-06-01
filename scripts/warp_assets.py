@@ -1,10 +1,20 @@
+"""THIS IS AN EXAMPLE OF SCRIPT TO ALLOW A WARP FROM ACTIVE NODE TO BASE NODE"""
+
+"""NOT REQUIRED TO SEND AAVE DATA FRON NODES TO MASTER BECAUSE PROTOCOL IN IN TEST MODE"""
+"""IF YOU TRY THIS WHEN PROTOCOL IS NOT IN TEST MODE THIS TRANSACTION WILL FAIL"""
+"""SET THE ADDRESS OF BASE NODE DEPLOYMENT FIRST"""
+
+
 from brownie import (
     MasterNode,
     config,
     network,
-    interface,
 )
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
+
+BASE_NODE = (
+    "0x3E22d326E5Cec21D7e25Fbd16ed72b589540eF49"  # Put here the BASE node deployed
+)
 
 
 def approve_link(spender, amount, account):
@@ -29,9 +39,12 @@ def warp_assets(destinationCCIPid, destinationNodeAddress, account):
 
 
 def main():
+    """CALL THIS FUNCTION ON ACTIVE NODE CHAIN"""
     warp_assets(
-        config["networks"]["arbitrum_sepolia"].get("BC_identifier"),
-        ARBITRUM_NODE,
+        config["networks"]["base_sepolia"].get(
+            "BC_identifier"
+        ),  # setted base_sepolia CCIPid
+        BASE_NODE,  # Set the address of BASE Node deployed
         get_account(account="main"),
     )
 

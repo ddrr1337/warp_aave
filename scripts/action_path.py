@@ -195,7 +195,7 @@ def tester_var():
 
 def main():
     # tester_recover_funds_both()
-    deploy_master()  # deploy on arbitrum
+    # deploy_master()  # deploy on arbitrum
     # deploy_node()
 
     """add_valid_node_on_master(
@@ -214,7 +214,7 @@ def main():
         False,
     )"""  # called in arbitrum
     # set_allowed_nodes_in_all_nodes()  # call in optimistic (first active node)
-    # deposit_node(5 * 10**6, get_account(account="main"))  # called optimistic
+    deposit_node(5 * 10**6, get_account(account="main"))  # called optimistic
     # tester_var()
     # call on optimistic
     # get_shares(get_account(account="main"))

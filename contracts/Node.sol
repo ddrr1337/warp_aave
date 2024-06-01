@@ -12,7 +12,6 @@ import "../interfaces/IWETH9.sol";
 
 //uniswap V3
 import "../interfaces/uniswap_V3/swap/ISwapRouter02.sol";
-
 //AAVE interfaces
 import "../interfaces/IPool.sol";
 import "../interfaces/IPoolDataProvider.sol";
@@ -22,13 +21,7 @@ import "../interfaces/IMasterNode.sol";
 contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     using SafeERC20 for IERC20;
 
-    // Custom errors to provide more descriptive revert messages.
     error NotEnoughBalance(uint256 currentBalance, uint256 calculatedFees); // Used to make sure contract has enough balance to cover the fees.
-    error NothingToWithdraw(); // Used when trying to withdraw Ether but there's nothing to withdraw.
-    error FailedToWithdrawEth(address owner, address target, uint256 value); // Used when the withdrawal of Ether fails.
-    error DestinationChainNotAllowed(uint64 destinationChainSelector); // Used when the destination chain has not been allowlisted by the contract owner.
-    error SourceChainNotAllowed(uint64 sourceChainSelector); // Used when the source chain has not been allowlisted by the contract owner.
-    error SenderNotAllowed(address sender); // Used when the sender has not been allowlisted by the contract owner.
 
     uint256 public maxVaultAmount = 2000000 * 10 ** 6;
     bool public isNodeActive;
@@ -185,7 +178,6 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         address pool = _getPool(POOL_ADDRESS_PROVIDER_ADDRESS);
         uint256 totalAusdc = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
 
-        /// TESTING ///
         uint256 amount = ((shares * 10 ** 18) * totalAusdc) /
             aWrpTotalSupplyNodeSide;
 
@@ -360,7 +352,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     }
     /////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    ///////////////////////  OUTGOING MESAGES HANDLER  ////////////////////
+    ///////////////////////  OUTGOING MESSAGES HANDLER  ///////////////////
     //////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////
 
@@ -373,7 +365,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         bool isPayingNative
     ) internal onlyAllowedAddresses(_receiver) returns (bytes32 messageId) {
         // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
-        // address(linkToken) means fees are paid in LINK
+        // address(s_linkToken) means fees are paid in LINK
         uint256 newAmount;
         if (_amount > 0) {
             newAmount = _amount;
@@ -403,6 +395,8 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             evm2AnyMessage
         );
 
+        // When an incoming message requires to pay the fees on native token
+        // This will sell some USDC from the vault to get the eth needed to pay the fees
         uint256 amountInUsdc;
         if (isPayingNative) {
             amountInUsdc = _getNativeFees(fees);

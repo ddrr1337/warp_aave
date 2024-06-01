@@ -86,7 +86,7 @@ def claim_assets_from_bridge(account):
 
 def main():
     # deploy_bridge(get_account(account="main"))
-    # multiple_deploy(get_account(account='main')) # call first on sepolia
+    multiple_deploy(get_account(account="main"))  # call first on sepolia
 
     """send_to_bridge(
         1.1 * 10**6,

@@ -3,7 +3,7 @@ dependencies:
   - Uniswap/swap-router-contracts@1.1.0
   - smartcontractkit/ccip@2.9.1-ccip1.4.9-release
   - aave/aave-v3-core@1.17.2
-
+  - ddrr1337/evm-cctp-contracts@1.0.0
 compiler:
   solc:
     optimizer:
@@ -15,7 +15,7 @@ compiler:
       - "@Uniswap=Uniswap/swap-router-contracts@1.1.0"
       - "@chainlink=smartcontractkit/ccip@2.9.1-ccip1.4.9-release"
       - "@aave=aave/aave-v3-core@1.17.2"
-
+      - "@circle=ddrr1337/evm-cctp-contracts@1.0.0"
 
 networks:
   binance_testnet:
@@ -80,7 +80,7 @@ networks:
   base_sepolia:
     BC_identifier: 10344971235874465080
     circle_message_transmitter: "0xAD09780d193884d503182aD4588450C416D6F9D4"
-    circle_token_messenger: "0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5"
+    circle_token_messenger: "0x1682Ae6375C4E4A97e4B583BC394c861A46D8962"
     router_ccip_address: "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93"
     circle_chain_id: 6
     explorer: 'https://sepolia.basescan.org/'
@@ -98,6 +98,7 @@ networks:
     uniswap_V2_factory: "0x7Ae58f10f7849cA6F5fB71b7f45CB416c9204b1e"
     weth: "0x4200000000000000000000000000000000000006"
     uniswap_V2_router: "0x1689E7B1F10000AE47eBfE339a4f69dECd19F602"
+
     verify: True
     gas_setup: "2 gwei"
     host: ${SEPOLIA_BASE_HOST}
@@ -105,7 +106,7 @@ networks:
   base_mainnet:
     BC_identifier: 0
     circle_message_transmitter: ""
-    circle_token_messenger: ""
+    circle_token_messenger: "0x1682Ae6375C4E4A97e4B583BC394c861A46D8962"
     router_ccip_address: ""
     circle_chain_id: 0
     explorer: ''
