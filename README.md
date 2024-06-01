@@ -28,4 +28,4 @@ This repository provides 3 main scripts:
 The next scripts not affect the contracts, but are needed in case sepolia uinswap V3 pools chains have not enought liquidity. This is of course not necessary on the mainnets, as the Uniswap V3 pools have millions of USDC/WETH in liquidity.
 
 4. `bridge.py`: Script to help to deploy bridges in multiples chains.
-5. `add_liquidity_if_needed.py` and `swap_assets` are just scripts to manage liquidity to ensure the pools have enought WETH in order Warp Yield can pay Chainlink fees.
+5. `add_liquidity_if_needed.py` and `swap_assets.py` are just scripts to manage liquidity to ensure the pools have enought WETH in order Warp Yield can pay Chainlink fees.
