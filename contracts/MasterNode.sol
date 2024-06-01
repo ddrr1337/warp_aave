@@ -294,6 +294,10 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         uint64 _destinationCCIPid,
         address _destinationNodeAddress
     ) external {
+        require(
+            validNodes[_destinationNodeAddress].isValidNode,
+            "Destination Node is not vaild"
+        );
         // in test mode no requirements to warp assets
         if (!isProtocolInTestMode) {
             require(

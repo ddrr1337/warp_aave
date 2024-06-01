@@ -181,7 +181,7 @@ def main():
         3.- NODE IN BASE_SEPOLIA
         4.- NODE IN ARBITRUM_SEPOLIA
       """
-    deploy_master_and_nodes_and_allow_addresses()
+    deploy_master_and_nodes_and_allow_addresses()  # call this on arbitrum sepolia
 
     print()
     print()

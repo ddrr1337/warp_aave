@@ -311,6 +311,11 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         bytes memory data = abi.encode(commandResumeOperations);
 
         if (NODE_CONTRACT_CHAIN_ID == MASTER_CONTRACT_CHAIN_ID) {
+            // here is needed cuz no message is sent
+            _assetsAllocationDeposit(
+                POOL_ADDRESS_PROVIDER_ADDRESS,
+                USDC_ADDRESS
+            );
             IMasterNode(MASTER_CONTRACT_ADDRESS)
                 ._resmumeOperationsFromSameChain();
         } else {

@@ -47,6 +47,7 @@ networks:
     link_token: "0xb1D4538B4571d411F07960EF2838Ce337FE1E80E"
     uniswap_V3_factory: "0x248AB79Bbb9bC29bB72f7Cd42F17e054Fc40188e"
     uniswap_V3_router: "0x101F443B4d1b059569D643917553c771E1b9663E"
+    eth_usdc_pool: "0x3eCedaB7E9479E29B694d8590dc34e0Ce6059868"
     uniswap_pool_fee: 10000
     non_fungible_position_manager: "0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65"
     weth: "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73"
@@ -70,6 +71,7 @@ networks:
     link_token: "0xE4aB69C077896252FAFBD49EFD26B5D171A32410"
     uniswap_V3_factory: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24"
     uniswap_V3_router: "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4"
+    eth_usdc_pool: "0xEB18BA6D2d8408A87EE5Ac4264C8dbb73ad538eb"
     uniswap_pool_fee: 500
     non_fungible_position_manager: "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2"
     weth: "0x4200000000000000000000000000000000000006"
@@ -93,9 +95,9 @@ networks:
     link_token: "0xE4aB69C077896252FAFBD49EFD26B5D171A32410"
     uniswap_V3_factory: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24"
     uniswap_V3_router: "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4"
+    eth_usdc_pool: "0x94bfc0574FF48E92cE43d495376C477B1d0EEeC0"
     uniswap_pool_fee: 500
     non_fungible_position_manager: "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2"
-    uniswap_V2_factory: "0x7Ae58f10f7849cA6F5fB71b7f45CB416c9204b1e"
     weth: "0x4200000000000000000000000000000000000006"
     uniswap_V2_router: "0x1689E7B1F10000AE47eBfE339a4f69dECd19F602"
     verify: True

@@ -19,7 +19,7 @@ contract UniswapV3Liquidity is IERC721Receiver {
 
     int24 private constant MIN_TICK = -887272;
     int24 private constant MAX_TICK = -MIN_TICK;
-    int24 private constant TICK_SPACING = 200;
+    int24 private constant TICK_SPACING = 10;
 
     INonfungiblePositionManager public nonfungiblePositionManager;
 
@@ -69,7 +69,7 @@ contract UniswapV3Liquidity is IERC721Receiver {
             memory params = INonfungiblePositionManager.MintParams({
                 token0: DAI,
                 token1: WETH,
-                fee: 10000,
+                fee: 500,
                 tickLower: (MIN_TICK / TICK_SPACING) * TICK_SPACING,
                 tickUpper: (MAX_TICK / TICK_SPACING) * TICK_SPACING,
                 amount0Desired: amount0ToAdd,

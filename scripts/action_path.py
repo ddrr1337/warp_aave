@@ -1,4 +1,4 @@
-from brownie import MasterNode, Node, config, network, interface, Tester
+from brownie import MasterNode, Node, config, network, interface
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
 from brownie.project.flattener import Flattener
@@ -188,9 +188,9 @@ def deposit_node(amount, account):
 
 
 def tester_var():
-    contract = Node[-1]
-    test = contract.totalSupply()
-    print("test", test, test / 10**18)
+    contract = MasterNode[-1]
+    test = contract.activeNode()
+    print("test", test)
 
 
 def main():
@@ -214,8 +214,9 @@ def main():
         False,
     )"""  # called in arbitrum
     # set_allowed_nodes_in_all_nodes()  # call in optimistic (first active node)
-    deposit_node(5 * 10**6, get_account(account="main"))  # called optimistic
+    # deposit_node(5 * 10**6, get_account(account="main"))  # called optimistic
     # tester_var()
+
     # call on optimistic
     # get_shares(get_account(account="main"))
     """ withdraw(
