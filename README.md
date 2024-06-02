@@ -39,7 +39,7 @@ As is common in projects with Brownie, create a .env file in the root of the pro
 
 `export PRIVATE_KEY=<wallet_privete_key>`
 
-To add networks to your environment, you can follow the official Brownie [documentation](https://eth-brownie.readthedocs.io/en/stable/network-management.html)
+To add networks to your environment, you can follow the official Brownie [documentation](https://eth-brownie.readthedocs.io/en/stable/network-management.html). Of course your named networks need to match with declared in this repo `brownie-config.yaml`.
 
 Then you will be able to start a script for example the deploy script:
 
