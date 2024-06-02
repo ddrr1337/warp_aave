@@ -1,8 +1,5 @@
 """ SCRIPT TO DEPLOY AND SETUP MASTER AND NODES CONTRACTS """
 
-""" UNCOMMENT FUNCTIONS IN MAIN() AS LONG YOU ARE DEPLOYING """
-
-
 from brownie import (
     MasterNode,
     Node,
@@ -10,12 +7,6 @@ from brownie import (
     network,
 )
 from utils.helpfull_scripts import get_account, get_gas_price
-
-
-MASTER_CONTRACT_ARBITRUM = ""
-OPTIMISTIC_NODE = ""
-BASE_NODE = ""
-ARBITRUM_NODE = ""
 
 
 def deploy_master():
@@ -98,12 +89,12 @@ def add_valid_addresses_in_master_and_nodes(
         deploy_optimistic,
         config["networks"]["optimistic_sepolia"].get("BC_identifier"),
         True,
-    )  # called in arbitrum
+    )
     add_valid_node_on_master(
         deploy_base,
         config["networks"]["base_sepolia"].get("BC_identifier"),
         False,
-    )  # called in arbitrum
+    )
     add_valid_node_on_master(
         deploy_arbitrum,
         config["networks"]["arbitrum_sepolia"].get("BC_identifier"),

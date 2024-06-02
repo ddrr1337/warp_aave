@@ -1,13 +1,11 @@
 from brownie import MasterNode, Node, config, network, interface
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
-from brownie.project.flattener import Flattener
 
-
-MASTER_CONTRACT_ARBITRUM = "0x6b8E782bE5cFB853920762631b0aE3053B14a1da"
-OPTIMISTIC_NODE = "0xb502b8B0a67f3346A7bfd3f15BA02962a9560822"
-BASE_NODE = "0xc64177A5521B2C5019c315c277522ECE93D8E953"
-ARBITRUM_NODE = "0x52E0198455f5432EDDb69a2E9b2ae7F24a0729E5"
+MASTER_CONTRACT_ARBITRUM = ""
+OPTIMISTIC_NODE = ""
+BASE_NODE = ""
+ARBITRUM_NODE = ""
 
 
 def deploy_master():

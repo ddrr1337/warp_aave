@@ -23,6 +23,18 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
 
     error NotEnoughBalance(uint256 currentBalance, uint256 calculatedFees); // Used to make sure contract has enough balance to cover the fees.
 
+    event WarpAssets(
+        uint64 indexed detinationCCIPid,
+        address indexed destinationNodeAddress,
+        uint256 indexed amount
+    );
+    event WarpCompletedNodeReady(uint8 indexed commandResmueOperations);
+    event DepositAssets(
+        address indexed userAddress,
+        uint256 indexed amountUsdc,
+        uint256 indexed amountAwrp
+    );
+
     uint256 public maxVaultAmount = 2000000 * 10 ** 6;
     bool public isNodeActive;
     address[] public allowedNodes;
@@ -51,9 +63,6 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     ////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
 
-    /// @notice Constructor initializes the contract with the router address.
-    /// @param _router The address of the router contract.
-    /// @param _link The address of the link contract.
     constructor(
         address _router,
         address _link,
@@ -228,9 +237,11 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             usdcwithdrawn,
             true
         );
+
+        emit WarpAssets(_destinationChainSelector, _receiver, usdcwithdrawn);
     }
 
-    /////////////  WARP ASSETS MASTER AND NODE IN SAME CHAIN  //////////////
+    /////////////  WARP ASSETS, MASTER AND NODE IN SAME CHAIN  //////////////
     function warpAssetsFromSameChain(
         uint64 _destinationChainSelector,
         address _receiver
@@ -256,6 +267,8 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             usdcwithdrawn,
             true
         );
+
+        emit WarpAssets(_destinationChainSelector, _receiver, usdcwithdrawn);
     }
 
     /////////////// ONLY FOR TESTING ////////////////////////
@@ -328,6 +341,8 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
                 true
             );
         }
+
+        emit WarpCompletedNodeReady(commandResumeOperations);
     }
     //////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////
@@ -463,14 +478,6 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         return messageId;
     }
 
-    /// @notice Construct a CCIP message.
-    /// @dev This function will create an EVM2AnyMessage struct with all the necessary information for programmable tokens transfer.
-    /// @param _receiver The address of the receiver.
-    /// @param _data The bytes data to be sent.
-    /// @param _token The token to be transferred.
-    /// @param _amount The amount of the token to be transferred.
-    /// @param _feeTokenAddress The address of the token used for fees. Set address(0) for native gas.
-    /// @return Client.EVM2AnyMessage Returns an EVM2AnyMessage struct which contains information for sending a CCIP message.
     function _buildCCIPMessage(
         address _receiver,
         bytes memory _data,
@@ -532,7 +539,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         uint256 totalAusdcNode = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
         require(
             totalAusdcNode + amount < maxVaultAmount,
-            "Node furfilled no more depsits allowed"
+            "Node furfilled no more deposits allowed"
         );
         uint256 shares;
         if (aWrpTotalSupplyNodeSide == 0) {
@@ -565,6 +572,8 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
                 false
             );
         }
+
+        emit DepositAssets(msg.sender, amount, shares);
     }
 
     /////////////////////////////////////////////////////////////////////////
@@ -660,7 +669,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     ///////////////////////////////////////////////////////////////////////
 
     function _getNativeFees(uint256 fees) internal returns (uint256) {
-        // Approve the router to spend USDC.
+        // withdraw the usdc from aave for paying the fees
         uint256 ausdcBalance = IERC20(aUSDC_ADDRESS).balanceOf(address(this));
         if (ausdcBalance > 0) {
             _assetsAllocationWithdraw(
@@ -670,6 +679,7 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
             );
         }
 
+        // Approve the router to spend USDC.
         uint256 usdcBalance = IERC20(USDC_ADDRESS).balanceOf(address(this));
         IERC20(USDC_ADDRESS).approve(address(iSwapRouter02), usdcBalance);
 

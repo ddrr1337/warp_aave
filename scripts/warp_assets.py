@@ -12,10 +12,8 @@ from brownie import (
 )
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
-BASE_NODE = (
-    "0xae5D24f99259d51d8AFdaeF082F253501317Eb1E"  # Put here the BASE node deployed
-)
-ARBITRUM_NODE = "0x00F4e07154714Ecf9c93335AeDA720a4E96E8d16"
+BASE_NODE = ""  # Put here the BASE node deployed
+ARBITRUM_NODE = ""  # Put here the Arbitrum node deployed
 
 
 def approve_link(spender, amount, account):
@@ -41,19 +39,21 @@ def warp_assets(destinationCCIPid, destinationNodeAddress, account):
 
 def main():
     """CALL THIS FUNCTION ON ACTIVE NODE CHAIN"""
-    warp_assets(
+    """CALL ONLY ONE, DO NOT CALL BOTH"""
+
+    """ warp_assets(
         config["networks"]["base_sepolia"].get(
             "BC_identifier"
         ),  # setted base_sepolia CCIPid
         BASE_NODE,  # Set the address of BASE Node deployed
         get_account(account="main"),
-    )
-    """ warp_assets(
+    ) """
+    warp_assets(
         config["networks"]["arbitrum_sepolia"].get(
             "BC_identifier"
         ),  # setted base_sepolia CCIPid
         ARBITRUM_NODE,  # Set the address of BASE Node deployed
         get_account(account="main"),
-    ) """
+    )
 
     print("--------------------------------------------------------")

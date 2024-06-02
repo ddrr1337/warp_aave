@@ -18,12 +18,20 @@ import "../interfaces/INode.sol";
 contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
     // Custom errors to provide more descriptive revert messages.
     error NotEnoughBalance(uint256 currentBalance, uint256 calculatedFees); // Used to make sure contract has enough balance to cover the fees.
-    error NothingToWithdraw(); // Used when trying to withdraw Ether but there's nothing to withdraw.
-    error FailedToWithdrawEth(address owner, address target, uint256 value); // Used when the withdrawal of Ether fails.
     error DestinationNodeNotValid(address nodeAddress); // Used when the destination address has not been allowlisted by the contract owner.
-    error SourceChainNotAllowed(uint64 sourceChainSelector); // Used when the source chain has not been allowlisted by the contract owner.
-    error SenderNotAllowed(address sender); // Used when the sender has not been allowlisted by the contract owner.
-    error InvalidReceiverAddress(); // Used when the receiver address is 0.
+
+    event WarpAssets(
+        uint64 indexed detinationCCIPid,
+        address indexed destinationNodeAddress
+    );
+
+    event WithdrawAssets(
+        uint64 indexed detinationCCIPid,
+        address indexed userAddress,
+        uint256 indexed amount
+    );
+    event ResumeOperations(uint8 indexed commandResumeOperations);
+    event MintAwrp(address indexed userAddress, uint256 indexed amount);
 
     bool public isProtocolInTestMode = true;
 
@@ -105,6 +113,8 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         );
 
         _mint(userAddress, shares);
+
+        emit MintAwrp(userAddress, shares);
     }
 
     ///////////////////  DEPOSIT, MASTER AND NODE IN SAME CHAIN  /////////////////
@@ -114,6 +124,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         uint256 shares
     ) external masterAndNodeInSameChain onlyValidNodes(msg.sender) {
         _mint(userAddress, shares);
+        emit MintAwrp(userAddress, shares);
     }
 
     /////////////////////////////////////////////////////////////////////////
@@ -128,6 +139,8 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
             .isActiveNode = true;
 
         activeNode = abi.decode(_any2EvmMessage.sender, (address));
+
+        emit ResumeOperations(uint8(1));
     }
 
     ///////////  RESUME OPERATIONS, MASTER AND NODE IN SAME CHAIN  //////////
@@ -139,6 +152,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
     {
         validNodes[msg.sender].isActiveNode = true;
         activeNode = msg.sender;
+        emit ResumeOperations(uint8(1));
     }
 
     /////////////////////////////////////////////////////////////////////////
@@ -326,6 +340,8 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         lastActiveNode = activeNode;
         activeNode = address(0);
         lastTimeWarped = block.timestamp;
+
+        emit WarpAssets(validNodes[activeNode].chainCCIPid, activeNode);
     }
 
     /////////////////////////////////////////////////////////////////////////
@@ -348,6 +364,12 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         } else {
             _sendMessage(validNodes[activeNode].chainCCIPid, activeNode, data);
         }
+
+        emit WithdrawAssets(
+            validNodes[activeNode].chainCCIPid,
+            msg.sender,
+            shares
+        );
     }
 
     /////////////////////////////////////////////////////////////////////////

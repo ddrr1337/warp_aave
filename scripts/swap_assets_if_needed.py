@@ -1,7 +1,5 @@
-from brownie import MasterNode, Node, config, network, interface, UniswapV3SingleHopSwap
+from brownie import config, network, interface, UniswapV3SingleHopSwap
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
-from datetime import datetime
-import math
 
 
 def deploy_swap_tokens():
@@ -15,7 +13,6 @@ def deploy_swap_tokens():
 
 def deposit_eth_to_get_weth(account, amount):
 
-    # Interactúa con el contrato WETH para depositar ETH y obtener WETH
     weth = interface.IWETH9(
         config["networks"][network.show_active()].get("weth"),
     )
