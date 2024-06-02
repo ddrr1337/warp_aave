@@ -1,3 +1,5 @@
+""" NOT NEEDED ANYMORE ONLY USED TO TEST BRIDGE """
+
 from web3 import Web3
 from eth_abi import abi
 import requests
