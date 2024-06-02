@@ -2,6 +2,10 @@
 
 A project created with Brownie v1.20.2
 
+```shell
+pip install eth-brownie==1.20.2
+```
+
 **THIS PROJECT IS NOT AUDITED YET DO NOT DEPLOY IN MAINNETS WITHOUT A PROPER AUDIT**
 
 Warp Yield is a protocol aimed at helping users maintain their capital in the highest yield among the blockchains where AAVE operates.
