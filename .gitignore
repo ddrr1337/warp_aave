@@ -4,5 +4,6 @@ __pycache__
 .hypothesis/
 build/
 reports/
-.gitignore
+./.gitignore
 .gitattributes
+
