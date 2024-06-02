@@ -2,6 +2,8 @@
 
 A project created with Brownie v1.20.2
 
+**THIS PROJECT IS NOT AUDITED YET DO NOT DEPLOY IN MAINNETS WITHOUT A PROPER AUDIT**
+
 Warp Yield is a protocol aimed at helping users maintain their capital in the highest yield among the blockchains where AAVE operates.
 
 For more detailed information on how the protocol works, please click here: [warpyield.com/docs/basics](https://warpyield.com/docs/basics)
