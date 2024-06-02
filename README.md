@@ -34,7 +34,7 @@ Also, in the `contracts` folder, you will find several accessory contracts:
 The next scripts do not affect the protocol, but are needed in case sepolia uinswap V3 pools chains have not enought liquidity. This is of course not necessary on the mainnets, as the Uniswap V3 pools have millions of USDC/WETH in liquidity.  
 Before performing any warp, be sure uniswap V3 pools in sepolia testnets have enough liquidity.
 
-4. `send_data.py`: Send AAve data to master node to allow warps, (no needed if Warp Yield is in test mode).
+4. `send_data.py`: Send AAve datato master node to allow warps, (no needed if Warp Yield is in test mode), and check offchain is warp is approved.
 5. `bridge.py`: Script to help to deploy bridges in multiples chains.
 6. `add_liquidity_if_needed.py` and `swap_assets_if_needed.py` are just scripts to manage liquidity to ensure the pools have enought WETH in order Warp Yield can pay Chainlink fees.
 
