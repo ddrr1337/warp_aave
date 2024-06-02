@@ -23,7 +23,6 @@ def calculate_sqrtPriceX96(price):
 
 def deposit_eth_to_get_weth(account, amount):
 
-    # Interactúa con el contrato WETH para depositar ETH y obtener WETH
     weth = interface.IWETH9(
         config["networks"][network.show_active()].get("weth"),
     )
@@ -101,27 +100,24 @@ def increase_liquidity(account, amount_usdc, amount_weth, nft_position_id):
         account,
     )
 
-    # Calcular los valores mínimos a ser aceptados (pueden ser 0 si no te preocupan los deslizamientos)
     amount0_min = 0
     amount1_min = 0
 
-    # Establecer el plazo máximo para que la transacción sea válida
     deadline = int(datetime.now().timestamp() + 600)
 
-    # Llamar a increaseLiquidity
+    # call increaseLiquidity
     tx = contract_ntf_manager.increaseLiquidity(
         [
-            nft_position_id,  # ID de tu NFT de posición
-            amount_usdc,  # Cantidad de USDC deseada
-            amount_weth,  # Cantidad de WETH deseada
-            amount0_min,  # Cantidad mínima de USDC aceptada
-            amount1_min,  # Cantidad mínima de WETH aceptada
-            deadline,  # Fecha límite para la transacción
+            nft_position_id,
+            amount_usdc,
+            amount_weth,
+            amount0_min,
+            amount1_min,
+            deadline,
         ],
         {"from": account, "gas_price": get_gas_price() * 1.5},
     )
 
-    # Esperar a que la transacción sea confirmada
     receipt = tx.wait(1)
     print(f"Transaction receipt: {receipt}")
     print(
@@ -211,7 +207,6 @@ def add_liquidity(amount_usdc, amount_weth, account):
     )
 
 
-# 707 tokenId
 def increase_liquidity(tokenId, amountToken0, amountToken1, account):
     approve_erc20(
         UniswapV3Liquidity[-1].address,
