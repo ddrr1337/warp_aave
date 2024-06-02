@@ -379,7 +379,6 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
         address _activeNode,
         address destinationNode
     ) public view returns (bool) {
-        //require 24 after last warp
         uint256 newSupplyRate = calculateNewSupplyRates(
             validNodes[destinationNode].totalUsdcSupply,
             validNodes[destinationNode].totalUsdcBorrow,
@@ -409,4 +408,5 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
 
         return validNodes[activeNode].chainCCIPid;
     }
+    //END
 }

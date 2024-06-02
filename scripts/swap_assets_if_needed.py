@@ -24,7 +24,7 @@ def deposit_eth_to_get_weth(account, amount):
     print(f"Wrapped {amount / 10**18} ETH into WETH")
 
 
-def swap_assets_to_get_USDC(amount, account):
+def swap_assets_to_get_USDC(amount, account, fee):
 
     approve_erc20(
         UniswapV3SingleHopSwap[-1].address,
@@ -34,7 +34,7 @@ def swap_assets_to_get_USDC(amount, account):
     )
     contract = UniswapV3SingleHopSwap[-1]
     swap = contract.swapExactInputSingleHop(
-        amount, {"from": account, "gas_price": get_gas_price() * 1.5}
+        amount, fee, {"from": account, "gas_price": get_gas_price() * 1.5}
     )
 
 
@@ -42,6 +42,6 @@ def main():
 
     # deploy_swap_tokens()
     # deposit_eth_to_get_weth(get_account(account="main"), 0.1 * 10**18)
-    swap_assets_to_get_USDC(0.02 * 10**18, get_account(account="main"))
+    swap_assets_to_get_USDC(0.03 * 10**18, get_account(account="main"), 10000)
 
     print("------------------  END SCRIPT  -----------------------")

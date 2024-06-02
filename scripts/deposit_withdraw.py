@@ -44,12 +44,12 @@ def main():
     """DO NOT CALL BOTH"""
     """WITHDRAW NEEDS FIRST THE DEPOSIT AWRP TOKENS COMPLETE PROPAGATION TO MASTER NODE"""
 
-    deposit_node(5 * 10**6, get_account(account="main"))  # called optimistic
+    deposit_node(20 * 10**6, get_account(account="main"))  # called optimistic
 
-    withdraw(
+    """ withdraw(
         2 * 10**18,
         get_account(account="main"),
-    )  # called in Arbitrum
+    ) """  # called in Arbitrum
 
     print()
     print()

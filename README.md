@@ -31,8 +31,8 @@ Also, in the `contracts` folder, you will find several accessory contracts:
 
 3. `deposit_withdraw.py`: This is a script for deposits and withdrawals. Please note that `warp_assets.py` will fail if the active node has no funds.
 
-The next scripts do not affect the protocol, but are needed in case sepolia uinswap V3 pools chains have not enought liquidity. This is of course not necessary on the mainnets, as the Uniswap V3 pools have millions of USDC/WETH in liquidity.
-Before performing any warp, be sure uniswap V3 pools in sepolia testnets have enough liquidity. No needed in mainnets as uniswap has millions in USDC/WETH liquidity.
+The next scripts do not affect the protocol, but are needed in case sepolia uinswap V3 pools chains have not enought liquidity. This is of course not necessary on the mainnets, as the Uniswap V3 pools have millions of USDC/WETH in liquidity.  
+Before performing any warp, be sure uniswap V3 pools in sepolia testnets have enough liquidity.
 
 4. `bridge.py`: Script to help to deploy bridges in multiples chains.
 5. `add_liquidity_if_needed.py` and `swap_assets_if_needed.py` are just scripts to manage liquidity to ensure the pools have enought WETH in order Warp Yield can pay Chainlink fees.

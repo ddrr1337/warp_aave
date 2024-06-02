@@ -19,7 +19,7 @@ contract UniswapV3SingleHopSwap {
         router = ISwapRouter02(SWAP_ROUTER_02);
     }
 
-    function swapExactInputSingleHop(uint256 amountIn) external {
+    function swapExactInputSingleHop(uint256 amountIn, uint24 fee) external {
         weth.transferFrom(msg.sender, address(this), amountIn);
         weth.approve(address(router), amountIn);
 
@@ -27,7 +27,7 @@ contract UniswapV3SingleHopSwap {
             .ExactInputSingleParams({
                 tokenIn: WETH,
                 tokenOut: DAI,
-                fee: 500,
+                fee: fee,
                 recipient: msg.sender,
                 amountIn: amountIn,
                 amountOutMinimum: 0,

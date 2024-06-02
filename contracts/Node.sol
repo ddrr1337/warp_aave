@@ -268,34 +268,6 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         emit WarpAssets(_destinationChainSelector, _receiver, usdcwithdrawn);
     }
 
-    /////////////// ONLY FOR TESTING ////////////////////////
-    function warpAssetsTester(
-        uint64 _destinationChainSelector,
-        address _receiver
-    ) public {
-        uint256 usdcwithdrawn = _assetsAllocationWithdraw(
-            POOL_ADDRESS_PROVIDER_ADDRESS,
-            aUSDC_ADDRESS,
-            USDC_ADDRESS
-        );
-
-        uint8 commandAWRPSupply = 2;
-        bytes memory data = abi.encode(
-            commandAWRPSupply,
-            aWrpTotalSupplyNodeSide
-        );
-
-        isNodeActive = false;
-        _sendMessage(
-            _destinationChainSelector,
-            _receiver,
-            data,
-            USDC_ADDRESS,
-            usdcwithdrawn,
-            true
-        );
-    }
-
     /////////////////////////////////////////////////////////////////////////
     /////////////////////  HANDLE RESUME OPERATIONS  ///////////////////////
     ///////////////////////////  COMMAND = 2  //////////////////////////////
@@ -709,4 +681,5 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
 
         return amount / 10 ** 18;
     }
+    //END
 }
