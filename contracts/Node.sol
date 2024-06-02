@@ -585,10 +585,10 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         (
             ,
             ,
-            uint256 totalAToken,
+            uint256 totalUsdcSupply,
             ,
-            uint256 totalVariableDebt,
-            uint256 liquidityRate,
+            uint256 totalUsdcBorrow,
+            uint256 supplyRate,
             ,
             ,
             ,
@@ -604,16 +604,16 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
         uint8 commandSendAaveData = 2;
         bytes memory data = abi.encode(
             commandSendAaveData,
-            totalAToken,
-            totalVariableDebt,
-            totalVariableDebt,
+            totalUsdcSupply,
+            totalUsdcBorrow,
+            supplyRate,
             totalAusdcNode
         );
         if (NODE_CONTRACT_CHAIN_ID == MASTER_CONTRACT_CHAIN_ID) {
             IMasterNode(MASTER_CONTRACT_ADDRESS).nodeAaveFeedFromSameChain(
-                totalAToken,
-                totalVariableDebt,
-                totalVariableDebt,
+                totalUsdcSupply,
+                totalUsdcBorrow,
+                supplyRate,
                 totalAusdcNode
             );
         } else {
