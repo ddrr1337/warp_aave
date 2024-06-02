@@ -304,10 +304,7 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
     ///////////////////////////////  WARP ASSETS  //////////////////////////
     ///////////////////////////////////////////////////////////////////////
 
-    function warpAssets(
-        uint64 _destinationCCIPid,
-        address _destinationNodeAddress
-    ) external {
+    function warpAssets(address _destinationNodeAddress) external {
         require(
             validNodes[_destinationNodeAddress].isValidNode,
             "Destination Node is not vaild"
@@ -319,6 +316,8 @@ contract MasterNode is CCIPReceiver, OwnerIsCreator, ERC20, UtilsMasterNode {
                 "Condition to warp not met"
             );
         }
+        uint64 _destinationCCIPid = validNodes[_destinationNodeAddress]
+            .chainCCIPid;
         uint8 commandWarpAssets = 1;
 
         bytes memory data = abi.encode(

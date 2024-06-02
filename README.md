@@ -29,7 +29,7 @@ Also, in the `contracts` folder, you will find several accessory contracts:
 
 2. `warp_assets.py`: This script provides a way to warp assets from the vault of one blockchain to another. Currently, the `bool public isProtocolInTestMode = true;` found in `MasterNode.sol` allows warping to other chains without having to meet the necessary conditions of interest rates, expiration of information, and others.
 
-3. `action_path.py`: This is a combination of the previous 2 scripts but with the functions separated to call them individually.
+3. `deposit_withdraw.py`: This is a script for deposits and withdrawals. Please note that `warp_assets.py` will fail if the active node has no funds.
 
 The next scripts do not affect the protocol, but are needed in case sepolia uinswap V3 pools chains have not enought liquidity. This is of course not necessary on the mainnets, as the Uniswap V3 pools have millions of USDC/WETH in liquidity.
 Before performing any warp, be sure uniswap V3 pools in sepolia testnets have enough liquidity. No needed in mainnets as uniswap has millions in USDC/WETH liquidity.

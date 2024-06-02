@@ -12,8 +12,11 @@ from brownie import (
 )
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
-BASE_NODE = ""  # Put here the BASE node deployed
+BASE_NODE = (
+    "0x37bcc8077B9C320F311A6C395cc4E0Bb616D3065"  # Put here the BASE node deployed
+)
 ARBITRUM_NODE = ""  # Put here the Arbitrum node deployed
+OPTIMISTIC_NODE = ""  # Put here the Optimistic node deployed
 
 
 def approve_link(spender, amount, account):
@@ -25,13 +28,12 @@ def approve_link(spender, amount, account):
     )
 
 
-def warp_assets(destinationCCIPid, destinationNodeAddress, account):
+def warp_assets(destinationNodeAddress, account):
 
     approve_link(MasterNode[-1], 10 * 10**18, account)
 
     contract = MasterNode[-1]
     warp_assets = contract.warpAssets(
-        destinationCCIPid,
         destinationNodeAddress,
         {"from": get_account(account="main"), "gas_price": get_gas_price() * 1.5},
     )
@@ -39,21 +41,19 @@ def warp_assets(destinationCCIPid, destinationNodeAddress, account):
 
 def main():
     """CALL THIS FUNCTION ON ACTIVE NODE CHAIN"""
-    """CALL ONLY ONE, DO NOT CALL BOTH"""
+    """CALL ONLY ONE, DO NOT CALL ALL"""
 
-    """ warp_assets(
-        config["networks"]["base_sepolia"].get(
-            "BC_identifier"
-        ),  # setted base_sepolia CCIPid
+    warp_assets(
         BASE_NODE,  # Set the address of BASE Node deployed
         get_account(account="main"),
-    ) """
-    warp_assets(
-        config["networks"]["arbitrum_sepolia"].get(
-            "BC_identifier"
-        ),  # setted base_sepolia CCIPid
-        ARBITRUM_NODE,  # Set the address of BASE Node deployed
-        get_account(account="main"),
     )
+    """ warp_assets(
+        ARBITRUM_NODE,  # Set the address of Arbitrum Node deployed
+        get_account(account="main"),
+    ) """
+    """ warp_assets(
+        OPTIMISTIC_NODE,  # Set the address of Optimistic Node deployed
+        get_account(account="main"),
+    ) """
 
     print("--------------------------------------------------------")

@@ -56,13 +56,6 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
 
     mapping(address => uint256) public avaliableForRefund;
 
-    ////////////////////////////////////////////////////////////////////////
-    ///////////////////////  TESTING  ///////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-
-    ////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-
     constructor(
         address _router,
         address _link,
@@ -245,7 +238,11 @@ contract Node is CCIPReceiver, OwnerIsCreator, UtilsNode {
     function warpAssetsFromSameChain(
         uint64 _destinationChainSelector,
         address _receiver
-    ) external {
+    ) external masterAndNodeInSameChain {
+        require(
+            msg.sender == MASTER_CONTRACT_ADDRESS,
+            "Only Master Contract allowed"
+        );
         uint256 usdcwithdrawn = _assetsAllocationWithdraw(
             POOL_ADDRESS_PROVIDER_ADDRESS,
             aUSDC_ADDRESS,
