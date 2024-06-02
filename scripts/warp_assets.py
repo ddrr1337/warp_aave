@@ -12,9 +12,7 @@ from brownie import (
 )
 from utils.helpfull_scripts import get_account, get_gas_price, approve_erc20
 
-BASE_NODE = (
-    "0x6f2015286d0D3BE28569c854454DEB1f1b6323AC"  # Put here the BASE node deployed
-)
+BASE_NODE = ""  # Put here the BASE node deployed
 ARBITRUM_NODE = ""  # Put here the Arbitrum node deployed
 OPTIMISTIC_NODE = ""  # Put here the Optimistic node deployed
 
