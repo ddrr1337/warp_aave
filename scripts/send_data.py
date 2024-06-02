@@ -2,10 +2,10 @@
 
 """NOT REQUIRED TO SEND AAVE DATA FRON NODES TO MASTER BECAUSE PROTOCOL IN IN TEST MODE ONLY FOR TESTING"""
 
-
-OPTIMISTIC_NODE = "0x59B13B2CFa3c2519041F76c75BD514f2025fF50d"
-BASE_NODE = "0xCB782707E3921443beD6667E9833578EF7dDd35B"
-ARBITRUM_SEPOLIA = "0xcfF161Faa743C79ccd15bB982FBd10D2336c0dD7"
+""" SET FIRST THE NODES YOU WANT TO SEND THE DATA FROM """
+OPTIMISTIC_NODE = ""
+BASE_NODE = ""
+ARBITRUM_SEPOLIA = ""
 
 from brownie import (
     MasterNode,
@@ -56,6 +56,6 @@ def main():
     """ THEN CHECK OFFCHAIN IF WARP IS APPROVED """
     """ CAN ALSO CHECK DATA FROM NODES """
     # send_data(get_account(account="main")) # call from nodes chains
-    # get_data_nodes(ARBITRUM_SEPOLIA) # call on arbitrum
+    # get_data_nodes(OPTIMISTIC_SEPOLIA) # call on arbitrum
     # check_warp(OPTIMISTIC_NODE, ARBITRUM_SEPOLIA) # call on arbitrum
     print("--------------------------------------------------------")
