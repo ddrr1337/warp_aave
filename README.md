@@ -33,6 +33,8 @@ Before performing any warp, be sure uniswap V3 pools in sepolia testnets have en
 4. `bridge.py`: Script to help to deploy bridges in multiples chains.
 5. `add_liquidity_if_needed.py` and `swap_assets_if_needed.py` are just scripts to manage liquidity to ensure the pools have enought WETH in order Warp Yield can pay Chainlink fees.
 
+### Baiscs of Brownie
+
 As is common in projects with Brownie, create a .env file in the root of the project with this structure:
 
 `export PRIVATE_KEY=<wallet_privete_key>`
